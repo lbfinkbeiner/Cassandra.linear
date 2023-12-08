@@ -5,28 +5,20 @@ from cassL import train_emu as te
 from cassL import camb_interface as ci
 import os
 
+# One of the benefits of distancing ourselves from the camb naming scheme is
+# it makes debugging easier: we'll quickly understand whether there is a problem
+# with the dev code or the user code.
+default_cosmology = {
+    'omB': 0.022445,
+    'omC': 0.120567,
+    'n_s': 0.96,
+    'A_s': 2.127238e-9,
+    'omK': 0,
+    'omDE': 0.305888,
+    'h': 0.67
+}
+
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
-
-# In keeping with the format of values typically quoted in the literature for
-# the scalar mode amplitude (see, for example, Spurio Mancini et al, 2021 ),
-# we here define our prior ranges with the use of exponentiation.
-A_MEGA_MIN = np.exp(1.61) / 10 ** 10
-A_MEGA_MAX = np.exp(5) / 10 ** 10
-
-# The MINI qualifier indicates that these belong to the "classic" prior ranges
-# (see the function prior_file_to_dict).
-A_CLASSIC_MIN = np.exp(2.35) / 10 ** 10
-A_CLASSIC_MAX = np.exp(3.91) / 10 ** 10
-
-# These values help with the following function.
-# However, neither of these belongs here, we should find a different home.
-disregard_keys = ["OmB", "OmC", "OmM", "z(4)", "z(3)", "z(2)", "z(1)", "z(0)",
-    "Lbox", "sigma8", "Name", "nnu_massive", "EOmDE"]
-
-def print_cosmology(cosmology):
-    for key in cosmology.keys():
-        if key not in disregard_keys:
-            print(key, cosmology[key])
 
 def prior_file_to_array(prior_name="COMET_with_nu"):
     """
@@ -99,6 +91,7 @@ def prior_file_to_dict(prior_name="COMET"):
 
     return param_ranges
 
+
 def check_existing_files(scenario_name):    
     save_path = "data_sets/" + scenario_name
     
@@ -140,104 +133,7 @@ def get_scenario(scenario_name):
                 scenario[key] = val
                 
     return scenario
-
-def build_train_and_test_sets(scenario_name):
-    """
-    That should be a separate function which marries this one with
-        build_and_test_emulator
     
-    
-    Options in the scenario file:
-    * A header with a comment explaining, in English, the basic gist of the
-        scenario.
-    * A totally-unique scenario name.
-    * Flag: do we need to also create a corresponding new test hypercube?
-    * Number of k points associated with each spectrum.
-    * Number of samples associated with the hypercube, default 5k.
-    
-    THIS FUNCTION SHOULD ISSUE A VERY LOUD WARNING IF ANY VALUES ARE IMPLIED
-    FROM DEFAULT VALUES!!!
-    
-    (have a very specific directory with the following subdirectories: \
-        1. Initial LHCs (i.e. stuff spat out by lhs.py functions)
-            New directories not necessary, because some scenarios will only
-            generate one file anyway.
-        2. Backups
-            At its peak, this folder will contain six files from the current
-            run: three for the most recent backups and three for the backups
-            before that. Then the old backups will be promptly deleted.
-        3. Final products
-            * Create a new directory for each scenario!!
-    """
-
-    # Step 1: read and error-check scenario file
-    
-    # Keep track of the scenario folder, so that we can save things there...
-    
-    scenario = get_scenario(scenario_name)
-    
-    #X Step 2: build train LHC
-    
-    priors = prior_file_to_dict(scenario["priors"])
-    
-    '''
-    train_lhc = lhc.multithread_unit_LHC_builder(dim=len(priors),
-        n_samples=scenario["num_test_samples"],
-        label=scenario_name,
-        num_workers=12, previous_record=0)
-    '''
-
-    standard_k = np.load("data_sets/k/" + scenario["num_spectra_points"] + \
-                     "k.npy", allow_pickle=True)
-    
-    save_path = "data_sets/" + scenario_name
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-        
-    train_complete, test_complete = check_existing_files(scenario_name)
-    
-    # Step 3: fill-in train LHC
-    if train_complete:
-        print("The training spectra appear to have already been computed. " + \
-              "If this is incorrect, please delete the old files and try " + \
-              "again.")
-    else:
-        lhc_train = np.load("data_sets/" + scenario["LHC_train"] + \
-                            "/lhc_train_initial.npy")
-
-        samples_train, rescalers_train = \
-            ged.fill_hypercube(lhc_train, standard_k, priors=priors,
-                save_label=scenario_name + "_train")
-        
-        np.save(save_path + "/samples_train.npy", samples_train)
-        np.save(save_path + "/rescalers_train.npy", rescalers_train)
-        np.save(save_path + "/lhc_train_final.npy", lhc_train)
-    
-        print("\nThe training spectra have been computed! Checking for " + \
-              "testing spectra...\n")
-    
-    #X Step 4: build test LHC 
-    
-    # Step 5: fill-in test LHC
-    if test_complete:
-        print("The testing spectra appear to have already been computed. " + \
-              "If this is incorrect, please delete the old files and try " + \
-              "again.")
-    elif scenario["same_test_set"] is None:
-
-        lhc_test = np.load("data_sets/" + scenario["LHC_train"] + \
-                            "/lhc_test_initial.npy")
-                            
-        samples_test, rescalers_test = \
-            ged.fill_hypercube(lhc_test, standard_k, priors=priors,
-                save_label=scenario_name + "_test")
-        
-        np.save(save_path + "/samples_test.npy", samples_test)
-        np.save(save_path + "/rescalers_test.npy", rescalers_test)
-        np.save(save_path + "/lhc_test_final.npy", lhc_test)
-    
-    #X Step 6: call build_and_test_emulator
-
 
 def get_data_dict(scenario_name):
     #! WATCH OUT! THIS FUNCTION ASSUMES MASSIVE NEUTRINOS ALWAYS
@@ -274,38 +170,6 @@ def get_data_dict(scenario_name):
 
     return data_dict
 
-def build_and_test_emulator(scenario_name):
-    """
-    Build a new Gaussian process regression over X_train and Y_train, then
-    test its accuracy using X_test and Y_test.
-    This function automatically throws out bad entries in all X and Y inputs.
-    
-    Just like the code in train_emu.py, this cannot yet handle the case of
-    different sampling distributions, e.g. root- or square-sampling in sigma12.
-    """
-    data_dict = get_data_dict(scenario_name)
-    
-    X_train_clean, Y_train_clean = \
-        te.eliminate_unusable_entries(data_dict["X_train"],
-                                      data_dict["Y_train"])
-    trainer = te.Emulator_Trainer(data_dict["emu_name"], X_train_clean,
-                                  Y_train_clean, data_dict["priors"])
-    trainer.train_p_emu()
-    
-    # Save early in case this function crashes
-    trainer.save()
-    
-    X_test_clean, Y_test_clean = \
-        te.eliminate_unusable_entries(data_dict["X_test"], data_dict["Y_test"])
-    trainer.test(X_test_clean, Y_test_clean)
-
-    trainer.error_hist()
-    
-    trainer.save()
-
-    return trainer
-
-# This should be part of the new, separate, smaller repo:
 
 def E2(OmM_0, OmK_0, OmDE_0, z):
     raise NotImplementedError
@@ -378,9 +242,7 @@ def scale_sigma12(**kwargs):
     
     # Calculate h
     if "h" not in kwargs:
-        cosmology["h"] = omB + omC + omDE + omK
-
-
+        cosmology["h"] = np.sqrt(omB + omC + omDE + omK)
 
     evolution_dictionary = {}
 
