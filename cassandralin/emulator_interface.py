@@ -200,7 +200,8 @@ missing_h_message = "A fractional density parameter was specified, but no " + \
     "value of 'h' was provided."
     
 missing_shape_message = "The value of {} was not provided. This is an " + \
-    "emulated shape parameter and is required."
+    "emulated shape parameter and is required. Setting to the Planck " + \
+    "best-fit value."
 
 def scale_sigma12(**kwargs):
     """
@@ -261,49 +262,71 @@ def scale_sigma12(**kwargs):
     for key, value in kwargs.items():
         conversions[key] = value
     
-    # Now complain about missing entries
-    
-    # The physical density in baryons is an emulated parameter, so the user is
-    # required to provide it.
-    if "omB" in kwargs:
-        conversions["omB"] = kwargs["omB"]
-    else:
-        raise ValueError("OmB is a required ingredient.")
-    
+    # Now complain about missing entries.
+    # We have to fill in missing densities immediately because they will be
+    # used to find h.
+    if "omB" not in kwargs:
+        warnings.warn(str.format(missing_shape_message, "omB"))
+        conversions["omB"] = cosmology["ombh2"]
+
     # Ditto with cold dark matter.
-    if "omC" in kwargs:
-        conversions["omB"] = kwargs["omC"]
-    else:
-        raise ValueError("OmC is a required ingredient.")
+    if "omC" not in kwargs:
+        warnings.warn(str.format(missing_shape_message, "omC"))
+        conversions["omC"] = cosmology["omch2"]
 
     # Ditto with the spectral index.
     if "n_s" not in kwargs:
-        raise ValueError("")
+        warnings.warn(str.format(mising_shape_message, "n_s"))
 
     omM = conversions["omB"] + conversions["omC"]
 
-    if "omDE" in conversions and "omK" not in kwargs and "OmK" not in kwargs:
+    # The question is, when omK is not specified, should we immediately set it
+    # to default, or immediately set h to default and back-calculate curvature?
+    if "omDE" in conversions and "omK" not in conversions:
         #cosmology["omDE"] = 
-        if "h" in kwargs:
-            omK = np.sqrt(kwargs["h"] ** 2 - omM - kwargs["omDE"])
-            cosmology["OmK"] = omK / kwargs["h"] ** 2
-            
-        
+        if "h" not in conversions:
+            # use default value for h
+            conversions["omK"] = cosmology["OmK"] / cosmology["h"] ** 2
+        else:
+            conversions["omK"] = \
+                np.sqrt(conversions["h"] ** 2 - omM - conversions["omDE"])
+
+    # This block differs a little from the previous block because we
+    # don't care about omDE except where it determines h.
+    if "omK" in conversions and "omDE" not in conversions:
+        #cosmology["omDE"] = 
+        if "h" not in conversions:
+            # use default value for h
+            conversions["h"] = cosmology["h"]
+
+    # Fill in default values for density parameters, because we need these to
+    # compute h
+    if "omK" not in conversions:
+        conversions["omK"] = cosmology["OmK"] / cosmology["h"] ** 2
+
+    # If omDE was never given, there's no point in calculating h
+    if "omDE" not in conversions:
+        conversions["h"] = cosmology["h"]
+
+    # If h wasn't given, compute it now that we have all of the physical
+    # densities.
+    if "h" not in conversions:
+        cosmology["h"] = np.sqrt(omB + omC + omDE + omK)
+
     # Finally, fill in cosmology. If we don't have a value with which to replace
     # an entry, then automatically the default value is preserved.
+    for key, value in cosmology:
+        # I HATE ME
+        cosmology["OmK"] = omK / conversions["h"] ** 2
 
     # Do likewise for DE and curvature, but instead of throwing an error, apply
     # the default value, i.e. that of Allie 0
-        
-    # If h wasn't given, compute it now that we have all of the physical
-    # densities.
-    if "h" not in kwargs:
-        cosmology["h"] = np.sqrt(omB + omC + omDE + omK)
+
 
     evolution_dictionary = {}
 
     # for key, item in kwargs:
-        
+
 
     default_sigma12 = def_cosm[""]
 
