@@ -5,6 +5,8 @@ from cassL import train_emu as te
 from cassL import camb_interface as ci
 import os
 
+import scipy
+
 # One of the benefits of distancing ourselves from the camb naming scheme is
 # it makes debugging easier: we'll quickly understand whether there is a problem
 # with the dev code or the user code.
@@ -20,9 +22,8 @@ DEFAULT_COSMOLOGY = {
 
 DEFAULT_SIGMA12 = 0.82476394
 
-raise NotImplementedError
 # linear growth factor
-DEFAULT_LGF = 1e6
+DEFAULT_LGF2 = 0.6238849955305038
 
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 
@@ -178,19 +179,16 @@ def get_data_dict(scenario_name):
 
 
 def E2(OmM_0, OmK_0, OmDE_0, z):
-    raise NotImplementedError
-
-    return OmM_0 * (1 + z) ** 3 + OmK_0 (1 + z) ** 2 + OmDE_0
+    return OmM_0 * (1 + z) ** 3 + OmK_0 * (1 + z) ** 2 + OmDE_0
 
 
-def linear_growth_factor(OmM_0, z):
-    raise NotImplementedError
-
+def linear_growth_factor(OmM_0, OmK_0, OmDE_0, z):
     def integrand(zprime):
-        return (1 + zprime) / E2(z) ** 1.5
+        return (1 + zprime) / np.power(E2(OmM_0, OmK_0, OmDE_0, zprime), 1.5)
 
-    return 2.5 * OmM_0 * np.sqrt(E2(z)) * integrate(z, infinity, integrand)
-
+    coefficient = 2.5 * OmM_0 * np.sqrt(E2(OmM_0, OmK_0, OmDE_0, z))
+    integral = scipy.integrate.quad(integrand, z, np.inf)[0]
+    return coefficient * integral
 
 spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
     "dark energy, and the Hubble parameter. Set two of the three, and " + \
@@ -283,6 +281,10 @@ def scale_sigma12(**kwargs):
         warnings.warn(str.format(mising_shape_message, "n_s"))
         conversions["n_s"] = DEFAULT_COSMOLOGY["n_s"]
 
+    if "z" not in kwargs:
+        warnings.warn("No redshift given. Using z=0...")
+        conversions["z"] = 0
+
     omM = conversions["omB"] + conversions["omC"]
 
     # The question is, when omK is not specified, should we immediately set it
@@ -295,12 +297,14 @@ def scale_sigma12(**kwargs):
             conversions["omK"] = \
                 np.sqrt(conversions["h"] ** 2 - omM - conversions["omDE"])
 
-    # This block differs a little from the previous block because we
-    # don't care about omDE except where it determines h.
+    # Analogous block for dark energy
     if "omK" in conversions and "omDE" not in conversions:
         if "h" not in conversions:
             # use default value for h
             conversions["h"] = DEFAULT_COSMOLOGY["h"]
+        else:
+            conversions["omDE"] = \
+                np.sqrt(conversions["h"] ** 2 - omM - conversions["omK"]
 
     # Fill in default values for density parameters, because we need these to
     # compute h
@@ -316,17 +320,14 @@ def scale_sigma12(**kwargs):
     if "h" not in conversions:
         DEFAULT_COSMOLOGY["h"] = np.sqrt(omB + omC + omDE + omK)
 
-    return DEFAULT_SIGMA12 * linear_growth_factor(z) / linear_growth_factor(0)
+    OmM = omM / conversions["h"] ** 2
+    OmK = conversions["omK"] / conversions["h"] ** 2
+    OmDE = conversions["omDE"] / conversions["h"] ** 2
+    LGF2 = linear_growth_factor(OmM, OmK, OmDE, conversions["z"]) ** 2
+    return DEFAULT_SIGMA12 * LGF2 / DEFAULT_LGF2
 
-    # We need to compute a ratio of the squares of the growth factors, right?
-    
     # Evolution parameters to handle
     # w_a
     # w_0
-    # h, i.e. Omega_DE
-    # Omega_K
-    
-    # The fitting formula that Andres gives applies to a FLAT LambdaCDM
-    # cosmology... what should I do?
     raise NotImplementedError
 
