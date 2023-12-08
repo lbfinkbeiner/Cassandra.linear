@@ -190,6 +190,11 @@ spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
     "dark energy, and the Hubble parameter. Set two of the three, and " + \
     "Cassandra-Linear will automatically handle the third."
 
+# "Handle" is kind of a misleading term; if the user specifies a physical
+# density, we won't bother with fractions at all.
+doubly_defined_message = "Do not simultaneously specify the physical and " + \
+    "fractional density in {}. Specify one or the other, and " + \
+    "Cassandra-Linear will automatically handle the other."
 
 def scale_sigma12(**kwargs):
     """
@@ -203,6 +208,16 @@ def scale_sigma12(**kwargs):
     :return:
     """
     cosmology = ci.default_cosmology()
+
+    # Make sure that no density parameters are doubly-defined
+    if "omB" in kwargs and "OmB" in kwargs:
+        raise ValueError(str.format(doubly_defined_message, "baryons"))
+    if "omC" in kwargs and "OmC" in kwargs:
+        raise ValueError(str.format(doubly_defined_message, "cold dark matter"))
+    if "omDE" in kwargs and "OmDE" in kwargs:
+        raise ValueError(str.format(doubly_defined_message, "dark energy"))
+    if "omK" in kwargs and "OmK" in kwargs:
+        raise ValueError(str.format(doubly_defined_message, "curvature"))
 
     # Make sure at most two of the three are defined: h, omega_curv, omega_DE
     if "h" in kwargs:
@@ -239,6 +254,8 @@ def scale_sigma12(**kwargs):
 
     # Do likewise for DE and curvature, but instead of throwing an error, apply
     # the default value, i.e. that of Allie 0
+    
+    
     
     # Calculate h
     if "h" not in kwargs:
