@@ -6,6 +6,7 @@ from cassL import camb_interface as ci
 import os
 
 import scipy
+import warnings
 
 # One of the benefits of distancing ourselves from the camb naming scheme is
 # it makes debugging easier: we'll quickly understand whether there is a problem
@@ -16,7 +17,7 @@ DEFAULT_COSMOLOGY = {
     'n_s': 0.96,
     'A_s': 2.127238e-9,
     'omK': 0,
-    # 'omDE': 0.305888,
+    'omDE': 0.305888,
     'h': 0.67
 }
 
@@ -205,7 +206,7 @@ missing_h_message = "A fractional density parameter was specified, but no " + \
     
 missing_shape_message = "The value of {} was not provided. This is an " + \
     "emulated shape parameter and is required. Setting to the Planck " + \
-    "best-fit value."
+    "best-fit value..."
 
 def scale_sigma12(**kwargs):
     """
@@ -220,6 +221,11 @@ def scale_sigma12(**kwargs):
     raise Warning("Ouch!")
     print("Hello")
     """
+    # To-do: add support for "wa" and "w0"
+    if "w" in kwargs or "w0" in kwargs or "wa" in kwargs:
+        raise NotImplementedError("This fn does not yet support DE EoS " + \
+                                  "customization.")
+
     # This is an arbitrarily-formatted dictionary just for internal use in this
     # function; it helps to keep track of values that may need to be converted
     # or inferred from others.
@@ -252,7 +258,7 @@ def scale_sigma12(**kwargs):
     
     for i in range(len(fractional_keys)):
         frac_key = fractional_keys[i]
-        if key in kwargs:
+        if frac_key in kwargs:
             if "h" not in conversions:
                 raise ValueError(missing_h_message)
             phys_key = physical_keys[i]
@@ -278,7 +284,7 @@ def scale_sigma12(**kwargs):
 
     # Ditto with the spectral index.
     if "n_s" not in kwargs:
-        warnings.warn(str.format(mising_shape_message, "n_s"))
+        warnings.warn(str.format(missing_shape_message, "n_s"))
         conversions["n_s"] = DEFAULT_COSMOLOGY["n_s"]
 
     if "z" not in kwargs:
@@ -304,7 +310,7 @@ def scale_sigma12(**kwargs):
             conversions["h"] = DEFAULT_COSMOLOGY["h"]
         else:
             conversions["omDE"] = \
-                np.sqrt(conversions["h"] ** 2 - omM - conversions["omK"]
+                np.sqrt(conversions["h"] ** 2 - omM - conversions["omK"])
 
     # Fill in default values for density parameters, because we need these to
     # compute h
@@ -314,6 +320,7 @@ def scale_sigma12(**kwargs):
     # If omDE was never given, there's no point in calculating h
     if "omDE" not in conversions:
         conversions["h"] = DEFAULT_COSMOLOGY["h"]
+        conversions["omDE"] = DEFAULT_COSMOLOGY["omDE"]
 
     # If h wasn't given, compute it now that we have all of the physical
     # densities.
@@ -326,8 +333,4 @@ def scale_sigma12(**kwargs):
     LGF2 = linear_growth_factor(OmM, OmK, OmDE, conversions["z"]) ** 2
     return DEFAULT_SIGMA12 * LGF2 / DEFAULT_LGF2
 
-    # Evolution parameters to handle
-    # w_a
-    # w_0
-    raise NotImplementedError
 
