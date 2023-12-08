@@ -1,4 +1,0 @@
-Things I need input on:
-* COMET errors
-* Math in the GP section
-* The LHS figure captions are too cramped, right? Do you think I should split it into two rows of plots?
