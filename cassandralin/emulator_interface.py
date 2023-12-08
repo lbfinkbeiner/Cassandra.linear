@@ -8,15 +8,21 @@ import os
 # One of the benefits of distancing ourselves from the camb naming scheme is
 # it makes debugging easier: we'll quickly understand whether there is a problem
 # with the dev code or the user code.
-default_cosmology = {
+DEFAULT_COSMOLOGY = {
     'omB': 0.022445,
     'omC': 0.120567,
     'n_s': 0.96,
     'A_s': 2.127238e-9,
     'omK': 0,
-    'omDE': 0.305888,
+    # 'omDE': 0.305888,
     'h': 0.67
 }
+
+DEFAULT_SIGMA12 = 0.82476394
+
+raise NotImplementedError
+# linear growth factor
+DEFAULT_LGF = 1e6
 
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 
@@ -216,8 +222,6 @@ def scale_sigma12(**kwargs):
     raise Warning("Ouch!")
     print("Hello")
     """
-    # This is a formatted dictionary that has to conform to ci formatting
-    cosmology = ci.default_cosmology()
     # This is an arbitrarily-formatted dictionary just for internal use in this
     # function; it helps to keep track of values that may need to be converted
     # or inferred from others.
@@ -267,26 +271,26 @@ def scale_sigma12(**kwargs):
     # used to find h.
     if "omB" not in kwargs:
         warnings.warn(str.format(missing_shape_message, "omB"))
-        conversions["omB"] = cosmology["ombh2"]
+        conversions["omB"] = DEFAULT_COSMOLOGY["omB"]
 
     # Ditto with cold dark matter.
     if "omC" not in kwargs:
         warnings.warn(str.format(missing_shape_message, "omC"))
-        conversions["omC"] = cosmology["omch2"]
+        conversions["omC"] = DEFAULT_COSMOLOGY["omC"]
 
     # Ditto with the spectral index.
     if "n_s" not in kwargs:
         warnings.warn(str.format(mising_shape_message, "n_s"))
+        conversions["n_s"] = DEFAULT_COSMOLOGY["n_s"]
 
     omM = conversions["omB"] + conversions["omC"]
 
     # The question is, when omK is not specified, should we immediately set it
     # to default, or immediately set h to default and back-calculate curvature?
     if "omDE" in conversions and "omK" not in conversions:
-        #cosmology["omDE"] = 
         if "h" not in conversions:
             # use default value for h
-            conversions["omK"] = cosmology["OmK"] / cosmology["h"] ** 2
+            conversions["omK"] = DEFAULT_COSMOLOGY["omK"]
         else:
             conversions["omK"] = \
                 np.sqrt(conversions["h"] ** 2 - omM - conversions["omDE"])
@@ -294,43 +298,25 @@ def scale_sigma12(**kwargs):
     # This block differs a little from the previous block because we
     # don't care about omDE except where it determines h.
     if "omK" in conversions and "omDE" not in conversions:
-        #cosmology["omDE"] = 
         if "h" not in conversions:
             # use default value for h
-            conversions["h"] = cosmology["h"]
+            conversions["h"] = DEFAULT_COSMOLOGY["h"]
 
     # Fill in default values for density parameters, because we need these to
     # compute h
     if "omK" not in conversions:
-        conversions["omK"] = cosmology["OmK"] / cosmology["h"] ** 2
+        conversions["omK"] = DEFAULT_COSMOLOGY["omK"]
 
     # If omDE was never given, there's no point in calculating h
     if "omDE" not in conversions:
-        conversions["h"] = cosmology["h"]
+        conversions["h"] = DEFAULT_COSMOLOGY["h"]
 
     # If h wasn't given, compute it now that we have all of the physical
     # densities.
     if "h" not in conversions:
-        cosmology["h"] = np.sqrt(omB + omC + omDE + omK)
+        DEFAULT_COSMOLOGY["h"] = np.sqrt(omB + omC + omDE + omK)
 
-    # Finally, fill in cosmology. If we don't have a value with which to replace
-    # an entry, then automatically the default value is preserved.
-    for key, value in cosmology:
-        # I HATE ME
-        cosmology["OmK"] = omK / conversions["h"] ** 2
-
-    # Do likewise for DE and curvature, but instead of throwing an error, apply
-    # the default value, i.e. that of Allie 0
-
-
-    evolution_dictionary = {}
-
-    # for key, item in kwargs:
-
-
-    default_sigma12 = def_cosm[""]
-
-    return old_sigma12 * linear_growth_factor(z) / linear_growth_factor(0)
+    return DEFAULT_SIGMA12 * linear_growth_factor(z) / linear_growth_factor(0)
 
     # We need to compute a ratio of the squares of the growth factors, right?
     
