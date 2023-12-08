@@ -195,6 +195,12 @@ spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
 doubly_defined_message = "Do not simultaneously specify the physical and " + \
     "fractional density in {}. Specify one or the other, and " + \
     "Cassandra-Linear will automatically handle the other."
+    
+missing_h_message = "A fractional density parameter was specified, but no " + \
+    "value of 'h' was provided."
+    
+missing_shape_message = "The value of {} was not provided. This is an " + \
+    "emulated shape parameter and is required."
 
 def scale_sigma12(**kwargs):
     """
@@ -206,8 +212,15 @@ def scale_sigma12(**kwargs):
     as the default value.
     :param kwargs:
     :return:
+    raise Warning("Ouch!")
+    print("Hello")
     """
+    # This is a formatted dictionary that has to conform to ci formatting
     cosmology = ci.default_cosmology()
+    # This is an arbitrarily-formatted dictionary just for internal use in this
+    # function; it helps to keep track of values that may need to be converted
+    # or inferred from others.
+    conversions = {}
 
     # Make sure that no density parameters are doubly-defined
     if "omB" in kwargs and "OmB" in kwargs:
@@ -225,39 +238,65 @@ def scale_sigma12(**kwargs):
             if "OmK" or "omk" in kwargs:
                 raise ValueError(spec_conflict_message)
 
-    # Make sure that h is specified, in the event that fractionals are given
+    # If h is present, set it right away, so that we can begin converting
+    # fractional densities.
+    if "h" in kwargs:
+        conversions["h"] = kwargs["h"]
+
+    # Make sure that h is present, in the event that fractionals are given
     fractional_keys = ["OmB", "OmC", "OmDE", "OmK"]
-    fractional_in_kwargs = False
-
-    for key in fractional_keys:
+    physical_keys = ["omB", "omC", "omDE", "omK"]
+    
+    for i in range(len(fractional_keys)):
+        frac_key = fractional_keys[i]
         if key in kwargs:
-            fractional_in_kwargs = True
-            break
-
-    if fractional_in_kwargs and "h" not in kwargs:
-        raise ValueError("A fractional density parameter was specified, " + \
-            "but no value of 'h' was provided.")
-            
+            if "h" not in conversions:
+                raise ValueError(missing_h_message)
+            phys_key = physical_keys[i]
+            conversions[phys_key] = kwargs[frac_key] / conversions["h"] ** 2
+    
+    # Nothing else requires such conversions, so add the remaining values
+    # directly to the working dictionary.
+    
+    for key, value in kwargs.items():
+        conversions[key] = value
+    
+    # Now complain about missing entries
+    
+    # The physical density in baryons is an emulated parameter, so the user is
+    # required to provide it.
     if "omB" in kwargs:
-        cosmology["ombh2"] = kwargs["omB"]
-    elif "OmB" in kwargs:
-        cosmology["ombh2"] = kwargs["OmB"] / h ** 2
+        conversions["omB"] = kwargs["omB"]
     else:
         raise ValueError("OmB is a required ingredient.")
     
+    # Ditto with cold dark matter.
     if "omC" in kwargs:
-        cosmology["omch2"] = kwargs["omC"]
-    elif "OmC" in kwargs:
-        cosmology["omch2"] = kwargs["OmC"] / h ** 2
+        conversions["omB"] = kwargs["omC"]
     else:
         raise ValueError("OmC is a required ingredient.")
 
+    # Ditto with the spectral index.
+    if "n_s" not in kwargs:
+        raise ValueError("")
+
+    omM = conversions["omB"] + conversions["omC"]
+
+    if "omDE" in conversions and "omK" not in kwargs and "OmK" not in kwargs:
+        #cosmology["omDE"] = 
+        if "h" in kwargs:
+            omK = np.sqrt(kwargs["h"] ** 2 - omM - kwargs["omDE"])
+            cosmology["OmK"] = omK / kwargs["h"] ** 2
+            
+        
+    # Finally, fill in cosmology. If we don't have a value with which to replace
+    # an entry, then automatically the default value is preserved.
+
     # Do likewise for DE and curvature, but instead of throwing an error, apply
     # the default value, i.e. that of Allie 0
-    
-    
-    
-    # Calculate h
+        
+    # If h wasn't given, compute it now that we have all of the physical
+    # densities.
     if "h" not in kwargs:
         cosmology["h"] = np.sqrt(omB + omC + omDE + omK)
 
