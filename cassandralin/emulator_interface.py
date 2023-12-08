@@ -243,8 +243,8 @@ def scale_sigma12(**kwargs):
 
     # Make sure at most two of the three are defined: h, omega_curv, omega_DE
     if "h" in kwargs:
-        if "OmDE" or "omDE"in kwargs:
-            if "OmK" or "omk" in kwargs:
+        if "OmDE" in kwargs or "omDE" in kwargs:
+            if "OmK" in kwargs or "omk" in kwargs:
                 raise ValueError(spec_conflict_message)
 
     # If h is present, set it right away, so that we can begin converting
@@ -262,13 +262,14 @@ def scale_sigma12(**kwargs):
             if "h" not in conversions:
                 raise ValueError(missing_h_message)
             phys_key = physical_keys[i]
-            conversions[phys_key] = kwargs[frac_key] / conversions["h"] ** 2
+            conversions[phys_key] = kwargs[frac_key] * conversions["h"] ** 2
     
     # Nothing else requires such conversions, so add the remaining values
     # directly to the working dictionary.
     
     for key, value in kwargs.items():
-        conversions[key] = value
+        if key not in fractional_keys:
+            conversions[key] = value
     
     # Now complain about missing entries.
     # We have to fill in missing densities immediately because they will be
@@ -301,7 +302,7 @@ def scale_sigma12(**kwargs):
             conversions["omK"] = DEFAULT_COSMOLOGY["omK"]
         else:
             conversions["omK"] = \
-                np.sqrt(conversions["h"] ** 2 - omM - conversions["omDE"])
+                conversions["h"] ** 2 - omM - conversions["omDE"]
 
     # Analogous block for dark energy
     if "omK" in conversions and "omDE" not in conversions:
@@ -310,7 +311,7 @@ def scale_sigma12(**kwargs):
             conversions["h"] = DEFAULT_COSMOLOGY["h"]
         else:
             conversions["omDE"] = \
-                np.sqrt(conversions["h"] ** 2 - omM - conversions["omK"])
+                conversions["h"] ** 2 - omM - conversions["omK"]
 
     # Fill in default values for density parameters, because we need these to
     # compute h
