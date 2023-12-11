@@ -191,6 +191,7 @@ def linear_growth_factor(OmM_0, OmK_0, OmDE_0, z):
     integral = scipy.integrate.quad(integrand, z, np.inf)[0]
     return coefficient * integral
 
+
 spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
     "dark energy, and the Hubble parameter. Set two of the three, and " + \
     "Cassandra-Linear will automatically handle the third."
@@ -208,19 +209,7 @@ missing_shape_message = "The value of {} was not provided. This is an " + \
     "emulated shape parameter and is required. Setting to the Planck " + \
     "best-fit value..."
 
-def scale_sigma12(**kwargs):
-    """
-    Ideally, the user wouldn't use this function, it would automatically be
-    called under the hood in the event that the user attempts to specify
-    evolution parameters in addition to the mandatory shape params.
-
-    Preferentially uses a specified 'h' to define omega_DE while leaving omega_K
-    as the default value.
-    :param kwargs:
-    :return:
-    raise Warning("Ouch!")
-    print("Hello")
-    """
+def transcribe_cosmology(**kwargs):
     # To-do: add support for "wa" and "w0"
     if "w" in kwargs or "w0" in kwargs or "wa" in kwargs:
         raise NotImplementedError("This fn does not yet support DE EoS " + \
@@ -327,11 +316,30 @@ def scale_sigma12(**kwargs):
     # densities.
     if "h" not in conversions:
         DEFAULT_COSMOLOGY["h"] = np.sqrt(omB + omC + omDE + omK)
+        
+    return conversions
 
+def scale_sigma12(**kwargs):
+    """
+    Ideally, the user wouldn't use this function, it would automatically be
+    called under the hood in the event that the user attempts to specify
+    evolution parameters in addition to the mandatory shape params.
+
+    Preferentially uses a specified 'h' to define omega_DE while leaving omega_K
+    as the default value.
+    :param kwargs:
+    :return:
+    raise Warning("Ouch!")
+    print("Hello")
+    """
+    conversions = transcribe_cosmology(kwargs)
+
+    omM = conversions["omB"] + conversions["omC"]
     OmM = omM / conversions["h"] ** 2
     OmK = conversions["omK"] / conversions["h"] ** 2
     OmDE = conversions["omDE"] / conversions["h"] ** 2
     LGF2 = linear_growth_factor(OmM, OmK, OmDE, conversions["z"]) ** 2
+    
     return DEFAULT_SIGMA12 * LGF2 / DEFAULT_LGF2
 
 
