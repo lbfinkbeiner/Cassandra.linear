@@ -53,96 +53,6 @@ def prior_file_to_array(prior_name="COMET_with_nu"):
     return param_ranges
 
 
-def prior_file_to_dict(prior_name="COMET"):
-    """
-    Legacy function, use prior_file_to_array now instead.
-    !
-    Return a dictionary of arrays where each key is a cosmological parameter
-    over which the emulator will be trained. The first entry of each array is
-    the parameter's lower bound, the second entry is the parameter's upper
-    bound.
-
-    @priors string indicating which set of parameters to use.
-        "MEGA": the original goal for this project, which unfortunately
-            suffered from too many empty cells. The code has gone through
-            several crucial bug fixes since switching to a different set of
-            priors, so we need to test this prior suite again and re-assess the
-            rate of empty cells.
-        "classic": a prior range with widths in between those of "COMET" and
-            "MEGA." We need to test this prior suite again to see if it still
-            suffers from a large number of empty cells.
-        "COMET" as of 19.06.23, this is the default for the emulator. It is
-            the most restrictive of the three options and is intended to
-            totally eliminate the problem of empty cells, so that a complete
-            LHC can be used to train a demonstration emulator. The hope is for
-            the demonstration emulator trained over such priors to be extremely
-            accurate due to the very narrow permissible parameter values.
-
-    @massive_neutrinos should be set to False when one is training the emulator
-        for massless neutrinos. This is because the massless neutrino emulator
-        should be using two fewer parameters--A_s and omega_nu_h2 are no longer
-        appropriate.
-    """
-    param_ranges = {}
-
-    prior_file = "priors/" + prior_name + ".txt"
-    
-    with open(prior_file, 'r') as file:
-        lines = file.readlines()
-        key = None
-        for line in lines:
-            if line[0] == "$":
-                key = line[1:].strip()
-            else:
-                bounds = line.split(",")
-                param_ranges[key] = [float(bounds[0]), float(bounds[1])]
-
-    return param_ranges
-
-
-def check_existing_files(scenario_name):    
-    save_path = "data_sets/" + scenario_name
-    
-    train_complete = False
-    test_complete = False
-    
-    if os.path.exists(save_path + "/lhc_train_final.npy") and \
-        os.path.exists(save_path + "/samples_train.npy"):
-        train_complete = True
-        
-    if os.path.exists(save_path + "/lhc_test_final.npy") and \
-        os.path.exists(save_path + "/samples_test.npy"):
-        test_complete = True
-    
-    return train_complete, test_complete
-    
-
-def get_scenario(scenario_name):
-    scenario = {}
-    file_handle = "scenarios/" + scenario_name + ".txt"
-    
-    with open(file_handle, 'r') as file:
-        lines = file.readlines()
-        key = None
-        for line in lines:
-            if line[0] == "#":
-                continue
-            if line.strip() == "":
-                continue
-
-            if line[0] == "$":
-                key = line[1:].strip()
-            else:
-                val = line.strip()
-                if val == "None":
-                    val = None
-                elif val.isnumeric() and key != "num_spectra_points":
-                    val = float(val)
-                scenario[key] = val
-                
-    return scenario
-    
-
 def get_data_dict(scenario_name):
     #! WATCH OUT! THIS FUNCTION ASSUMES MASSIVE NEUTRINOS ALWAYS
 
@@ -174,7 +84,7 @@ def get_data_dict(scenario_name):
     Y_test = np.load(directory + "samples_test.npy", allow_pickle=False)
     data_dict["Y_test"] = Y_test
     
-    data_dict["priors"] = prior_file_to_dict(scenario["priors"])
+    data_dict["priors"] = prior_file_to_array(scenario["priors"])
 
     return data_dict
 
