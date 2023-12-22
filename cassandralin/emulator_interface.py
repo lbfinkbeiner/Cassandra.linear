@@ -109,7 +109,7 @@ spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
 # "Handle" is kind of a misleading term; if the user specifies a physical
 # density, we won't bother with fractions at all.
 doubly_defined_message = "Do not simultaneously specify the physical and " + \
-    "fractional density in {}. Specify one or the other, and " + \
+    "fractional density in {}. Specify one, and " + \
     "Cassandra-Linear will automatically handle the other."
     
 missing_h_message = "A fractional density parameter was specified, but no " + \
@@ -120,6 +120,48 @@ missing_shape_message = "The value of {} was not provided. This is an " + \
     "best-fit value..."
 
 def transcribe_cosmology(**kwargs):
+    """
+    Turn a set of arguments into a complete cosmology dictionary. Cosmology
+    dictionaries follow a particular format for compatibility with the fn.s in
+    this script that return various power spectra power.
+    
+    This fn. thoroughly error-checks the arguments to verify that they represent
+    a consistent and complete cosmology. Mostly, completeness is not a problem
+    for the user, as missing parameters are generally inferred from the default 
+    cosmology. However, for example, this fn will complain if the user attempts
+    to specify fractional density parameters without specifying the value of the 
+    Hubble parameter.
+    
+    After this verification, the fn converts given quantities to desired
+    quantities. For example, the code in this script primarily uses physical 
+    densities, so fractional densities will be converted.
+    
+    Possible parameters:
+    omB: float
+        Physical density in baryons
+    OmB: float
+        Fractional density in baryons
+    
+    omC: float
+        Physical density in cold dark matter
+    OmC: float
+        Fractional density in cold dark matter
+    
+    omDE: float
+        Physical density in dark energy
+    OmDE: float
+        Fractional density in dark energy
+    
+    omK: float
+        Physical density in curvature
+    OmK: float
+        Fractional density in curvature
+    
+    h: float
+        dimensionless Hubble parameter
+    H0: float
+        Hubble parameter in km / s / Mpc
+    """
     # To-do: add support for "wa" and "w0"
     if "w" in kwargs or "w0" in kwargs or "wa" in kwargs:
         raise NotImplementedError("This fn does not yet support DE EoS " + \
@@ -130,7 +172,7 @@ def transcribe_cosmology(**kwargs):
     # or inferred from others.
     conversions = {}
 
-    # Make sure that no density parameters are doubly-defined
+    # Make sure that no parameters are doubly-defined
     if "omB" in kwargs and "OmB" in kwargs:
         raise ValueError(str.format(doubly_defined_message, "baryons"))
     if "omC" in kwargs and "OmC" in kwargs:
@@ -139,9 +181,12 @@ def transcribe_cosmology(**kwargs):
         raise ValueError(str.format(doubly_defined_message, "dark energy"))
     if "omK" in kwargs and "OmK" in kwargs:
         raise ValueError(str.format(doubly_defined_message, "curvature"))
+    if "h" in kwargs and "H0" in kwargs:
+        raise ValueError("Do not specify h and H0 simultaneously. Specify " + \
+            "one, and Cassandra-Linear will automatically handle the other.")
 
     # Make sure at most two of the three are defined: h, omega_curv, omega_DE
-    if "h" in kwargs:
+    if "h" in kwargs or "H0" in kwargs:
         if "OmDE" in kwargs or "omDE" in kwargs:
             if "OmK" in kwargs or "omk" in kwargs:
                 raise ValueError(spec_conflict_message)
@@ -150,6 +195,8 @@ def transcribe_cosmology(**kwargs):
     # fractional densities.
     if "h" in kwargs:
         conversions["h"] = kwargs["h"]
+    elif "H0" in kwargs:
+        conversions["h"] = kwargs["H0"] / 100
 
     # Make sure that h is present, in the event that fractionals are given
     fractional_keys = ["OmB", "OmC", "OmDE", "OmK"]
