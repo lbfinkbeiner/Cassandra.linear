@@ -22,9 +22,8 @@ DEFAULT_COSMOLOGY = {
 }
 
 DEFAULT_SIGMA12 = 0.82476394
-
 # linear growth factor
-DEFAULT_LGF2 = 0.6238849955305038
+DEFAULT_LGF = 0.7898639094999238
 
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 
@@ -338,8 +337,10 @@ def scale_sigma12(**kwargs):
     OmM = omM / conversions["h"] ** 2
     OmK = conversions["omK"] / conversions["h"] ** 2
     OmDE = conversions["omDE"] / conversions["h"] ** 2
-    LGF2 = linear_growth_factor(OmM, OmK, OmDE, conversions["z"]) ** 2
     
-    return DEFAULT_SIGMA12 * LGF2 / DEFAULT_LGF2
+    LGF = linear_growth_factor(OmM, OmK, OmDE, conversions["z"])
+    As_ratio = conversions["A_s"] / DEFAULT_COSMOLOGY["A_s"]
+    
+    return DEFAULT_SIGMA12 * LGF / DEFAULT_LGF * np.sqrt(As_ratio)
 
 
