@@ -161,6 +161,18 @@ def transcribe_cosmology(**kwargs):
         dimensionless Hubble parameter
     H0: float
         Hubble parameter in km / s / Mpc
+        
+    n_s: float
+        Spectral index of the primordial power spectrum
+    
+    A_s: float
+        Scalar mode amplitude of the primordial power spectrum
+        
+    !!!
+    z: float
+        redshift. THIS PROBABLY DOESN'T BELONG IN THE COSMOLOGY DICTIONARY.
+        Maybe we should leave redshift as a separate input in the various fn.s
+        of this script?
     """
     # To-do: add support for "wa" and "w0"
     if "w" in kwargs or "w0" in kwargs or "wa" in kwargs:
