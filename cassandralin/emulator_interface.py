@@ -5,6 +5,9 @@ from cassL import train_emu as te
 from cassL import camb_interface as ci
 import os
 
+#!! Matteo's code, which still needs to be gracefully incorporated
+import cosmo_tools
+
 import scipy
 import warnings
 
@@ -26,6 +29,60 @@ DEFAULT_SIGMA12 = 0.82476394
 DEFAULT_LGF = 0.7898639094999238
 
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
+
+# Evolution parameter keys. If ANY of these appears in a cosmology dictionary,
+# there had better not be a sigma12 value...
+EV_PAR_KEYS = []
+
+def contains_ev_par(dictionary):
+    for ev_par_key in EV_PAR_KEYS:
+        if ev_par_key in dictionary:
+            return true
+
+def dictionary_to_emu_vec(dictionary):
+    # Regardless of whether we use the massless or massive emu,
+    # we need omega_b, omega_c, n_s, and sigma12
+    
+    # We may want to allow the user to turn off error checking if a lot of
+    # predictions need to be tested all at once...
+    if "sigma12" in dictionary and contains_ev_par(dictionary)
+
+def predict(dictionary):
+    """
+    This fn wraps the trainer object...
+    
+    It automatically returns a prediction and the estimated uncertainty on that
+    prediction. I still don't really know why we re-invented the wheel, when
+    the GPR object itself gives an uncertainty. But let's see...
+    """
+    # Can I use an API that I can't necessarily see?
+    # i.e. does it work to access trainer fn.s if cassL-dev isn't
+    # installed?
+    
+    # Wait a moment... isn't the saved emu file supposed to contain
+    # both the primary and unc emu's??
+    # Maybe we simply did this on a different machine...
+    nu_trainer = np.load(data_prefix + "emus/Hnu2.cle")
+    z_trainer = np.load(data_prefix + "emus/Hz1.cle")
+    
+    # If the user has not provided a sigma12 value, we need to compute it from
+    # the evolution parameters. If there is a sigma12 value, we need to 
+    # complain in the presence of evolution parameters...
+    
+    
+    
+    if dictionary["omega_nu"] == 0:
+        raise NotImplementedError("activate massless-neutrino emu")
+        
+        # Don't forget to normalize the x first!!
+        test_predictions[i] = self.p_emu.predict(X_test[i])
+    else
+        raise NotImplementedError("activate massive-neutrino emu")
+        
+    # Now apply some rescaling to the result based on the provided evolution
+    # parameters...
+    return 23
+    
 
 def prior_file_to_array(prior_name="COMET_with_nu"):
     """
@@ -164,7 +221,7 @@ def transcribe_cosmology(**kwargs):
     # To-do: add support for "wa" and "w0"
     if "w" in kwargs or "w0" in kwargs or "wa" in kwargs:
         raise NotImplementedError("This fn does not yet support DE EoS " + \
-                                  "customization.")
+                                    "customization.")
 
     # This is an arbitrarily-formatted dictionary just for internal use in this
     # function; it helps to keep track of values that may need to be converted
@@ -285,8 +342,6 @@ def scale_sigma12(**kwargs):
     as the default value.
     :param kwargs:
     :return:
-    raise Warning("Ouch!")
-    print("Hello")
     """
     conversions = transcribe_cosmology(kwargs)
 
@@ -299,5 +354,4 @@ def scale_sigma12(**kwargs):
     As_ratio = conversions["A_s"] / DEFAULT_COSMOLOGY["A_s"]
     
     return DEFAULT_SIGMA12 * LGF / DEFAULT_LGF * np.sqrt(As_ratio)
-
 
