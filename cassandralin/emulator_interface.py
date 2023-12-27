@@ -35,17 +35,34 @@ data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 EV_PAR_KEYS = []
 
 def contains_ev_par(dictionary):
+    """
+    Check if the cosmology specified by @dictionary contains a definition of
+    an evolution parameter.
+    """
     for ev_par_key in EV_PAR_KEYS:
         if ev_par_key in dictionary:
             return true
+            
+    return False
 
 def dictionary_to_emu_vec(dictionary):
+    """
+    Turn an input cosmology into an input vector that the emulator understands
+    and from which it can predict a power spectrum.
+    """
     # Regardless of whether we use the massless or massive emu,
     # we need omega_b, omega_c, n_s, and sigma12
     
     # We may want to allow the user to turn off error checking if a lot of
     # predictions need to be tested all at once...
-    if "sigma12" in dictionary and contains_ev_par(dictionary)
+    if "sigma12" in dictionary and contains_ev_par(dictionary):
+        raise ValueError("sigma12 and at least one evolution parameter " + \
+            "were simultaneously specified. If the desired sigma12 is " + \
+            "already known, no evolution parameters should appear.")
+    
+    if "omnu" == 0:
+        return 23
+    
 
 def predict(dictionary):
     """
@@ -244,7 +261,8 @@ def transcribe_cosmology(**kwargs):
     if "omB" in kwargs and "OmB" in kwargs:
         raise ValueError(str.format(doubly_defined_message, "baryons"))
     if "omC" in kwargs and "OmC" in kwargs:
-        raise ValueError(str.format(doubly_defined_message, "cold dark matter"))
+        raise ValueError(str.format(doubly_defined_message,
+                                      "cold dark matter"))
     if "omDE" in kwargs and "OmDE" in kwargs:
         raise ValueError(str.format(doubly_defined_message, "dark energy"))
     if "omK" in kwargs and "OmK" in kwargs:
