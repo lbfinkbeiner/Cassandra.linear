@@ -3,6 +3,7 @@
 
 from cassL import camb_interface as ci
 import emulator_interface as ei
+import numpy as np
 
 m0 = ci.full_cosm.iloc[0]
 
@@ -64,8 +65,8 @@ for z in z_values:
     D0 = it(m0_conv)
     D1 = it(m1_conv)
     D2 = it(m2_conv)
-    er01.append(D0 ** 2 / D1 ** 2)
-    er02.append(D0 ** 2 / D2 ** 2)
+    er01.append(D0 / D1 * np.sqrt(m0["A_s"] / m1["A_s"]))
+    er02.append(D0 / D2 * np.sqrt(m0["A_s"] / m2["A_s"]))
 
 print(er01)
 print(er02)
