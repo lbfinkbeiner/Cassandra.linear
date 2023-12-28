@@ -199,22 +199,61 @@ def cosmology_to_Pk(**kwargs):
 def add_sigma12(**kwargs):
     cosmology = transcribe_cosmology(kwargs)
 
-    raise 1 / 0, "this needs to be normalized"
-
     base = np.array([
         cosmology.pars["omega_b"],
         cosmology.pars["omega_cdm"],
         cosmology.pars["ns"]
     ])
+    
+    base_normalized = sigma12_trainer.p_emu.convert_to_normalized_params(base)
 
     # First, emulate sigma12 as though the evolution parameters were all given
     # by the current best fit in the literature.
-    sigma12 = sigma12_trainer.p_emu.predict(base)
+    sigma12 = sigma12_trainer.p_emu.predict(base_normalized)
     
     # Now scale according to the evolution parameters
     dictionary["sigma12"] = estimate_sigma12(dictionary)
     
     return 23
+    
+def scale_sigma12(cosmology, m0_sigma12):
+    """
+    Ideally, the user wouldn't use this function, it would automatically be
+    called under the hood in the event that the user attempts to specify
+    evolution parameters in addition to the mandatory shape params.
+
+    Preferentially uses a specified 'h' to define omega_DE while leaving
+    omega_K as the default value.
+    
+    @cosmology: Brenda Cosmology object
+        This contains all of the cosmological parameters we'll need in order to
+        compute the linear growth factor. 
+    
+    @m0_sigma12: float
+        The sigma12 value returned by the sigma12 emulator. This is what the
+        sigma12 value would be if we overwrote Aletheia model 0 (i.e. the
+        Planck best fit parameters) with this cosmology's values for omega_b,
+        omega_cdm, and n_s.
+    
+    :return:
+    
+    @scaled_sigma12: float
+        An estimate of the sigma12 given the cosmological parameters associated
+        with @cosmology.
+    """
+    omM = conversions["omega_b"] + conversions["omega_cdm"]
+    OmM = omM / conversions["h"] ** 2
+    OmK = conversions["omega_K"] / conversions["h"] ** 2
+    OmDE = conversions["omega_DE"] / conversions["h"] ** 2
+    
+    LGF = linear_growth_factor(OmM, OmK, OmDE, conversions["z"])
+    
+    # If the user specified no A_s value, the following factor automatically
+    # disappears because, in this case, transcribe_cosmology sets
+    # cosmology["As"] = DEFAULT_COSMOLOGY["As"]
+    As_ratio = conversions["A_s"] / DEFAULT_COSMOLOGY["A_s"]
+    
+    return DEFAULT_SIGMA12 * LGF / DEFAULT_LGF * np.sqrt(As_ratio)
 
 def cosmology_to_emu_vec(cosmology):
     """
@@ -420,32 +459,4 @@ def transcribe_cosmology(**kwargs):
     cosmology.pars = conversions
         
     return cosmology
-
-def scale_sigma12(**kwargs):
-    """
-    Ideally, the user wouldn't use this function, it would automatically be
-    called under the hood in the event that the user attempts to specify
-    evolution parameters in addition to the mandatory shape params.
-
-    Preferentially uses a specified 'h' to define omega_DE while leaving omega_K
-    as the default value.
-    :param kwargs:
-    :return:
-    """
-    conversions = transcribe_cosmology(kwargs)
-
-    omM = conversions["omega_b"] + conversions["omega_cdm"]
-    OmM = omM / conversions["h"] ** 2
-    OmK = conversions["omega_K"] / conversions["h"] ** 2
-    OmDE = conversions["omega_DE"] / conversions["h"] ** 2
-    
-    LGF = linear_growth_factor(OmM, OmK, OmDE, conversions["z"])
-    
-    #! Should we throw an error if A_s is specified without omega_nu?
-    #! I don't think so...
-    As_ratio = 1
-    if "A_s" in conversions:
-        As_ratio = conversions["A_s"] / DEFAULT_COSMOLOGY["A_s"]
-    
-    return DEFAULT_SIGMA12 * LGF / DEFAULT_LGF * np.sqrt(As_ratio)
 
