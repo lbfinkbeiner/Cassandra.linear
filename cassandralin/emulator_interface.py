@@ -18,13 +18,11 @@ DEFAULT_COSMOLOGY = {
     'As': 2.127238e-9,
     'omega_K': 0,
     'omega_DE': 0.305888,
+    'omega_nu': 0,
     'h': 0.67,
     'sigma12': 0.82476394,
     'LGF': 0.7898639094999238
 }
-
-def within_prior(value, index):
-    return value >= PRIORS[index][0] and value <= PRIORS[index][1]
 
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 
@@ -42,7 +40,16 @@ zm_trainer = np.load(data_prefix + "emus/Hz1.cle", allow_pickle=True)
 
 def prior_file_to_array(prior_name="COMET"):
     """
-    !
+    Read a prior file into a NumPy array.
+    
+    Prior files are a feature from the developer tools; they control the
+    building of the data sets over which the emulators train. This function,
+    which originally appears there, has been copied here  only for the purpose
+    of providing more accessible error messages when the user inputs a value
+    outside of the acceptable priors.
+    
+    In other words, users only interested in this interface will have no
+    reason to call this function outside of its automatic invocation.
     """
     param_ranges = None
 
@@ -65,6 +72,17 @@ def prior_file_to_array(prior_name="COMET"):
     return param_ranges
 
 PRIORS = prior_file_to_array("COMET")
+
+def within_prior(value, index):
+    """
+    Check if a given value falls within the associated priors.
+    
+    @value the parameter value to be tested
+    @index the index of PRIORS which corresponds to that parameter. For 
+        example, if @value were a configuration of the spectral index. We would
+        call within_prior(value, 2).
+    """
+    return value >= PRIORS[index][0] and value <= PRIORS[index][1]
 
 def contains_ev_par(dictionary):
     """
@@ -101,7 +119,7 @@ def error_check_cosmology(**kwargs):
     # predictions need to be tested all at once...
     
     # Make sure that the user EITHER specifies sigma12 or ev. param.s
-    if "sigma12" in dictionary and contains_ev_par(dictionary):
+    if "sigma12" in kwargs and contains_ev_par(kwargs):
         raise ValueError(ambiguous_sigma12_msg)
     
     # Make sure that no parameters are doubly-defined
@@ -131,7 +149,7 @@ fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
 physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
                  "omega_nu"]
    
-def convert_densities(**kwargs):
+def convert_densities(kwargs):
     """
     Convert any fractional densities specified in kwargs, and raise an
     error if there exists a fractional density without an accompanying h.
@@ -156,7 +174,7 @@ def convert_densities(**kwargs):
 missing_h_message = "A fractional density parameter was specified, but no " + \
     "value of 'h' was provided."    
    
-def fill_in_defaults(**kwargs):
+def fill_in_defaults(kwargs):
     """
     Take an input cosmology and fill in missing values with defaults until it
     meets the requirements for emu prediction. 
@@ -322,7 +340,7 @@ def cosmology_to_emu_vec(cosmology):
         return nu_trainer.p_emu.convert_to_normalized_params(full_vector)
 
 
-def transcribe_cosmology(**kwargs):
+def transcribe_cosmology(kwargs):
     """
     Turn a set of arguments into a complete Cosmology object. Cosmology
     objects follow a particular format for compatibility with the fn.s in
