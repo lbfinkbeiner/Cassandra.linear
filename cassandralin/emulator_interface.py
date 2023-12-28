@@ -187,7 +187,8 @@ def convert_fractional_densities(cosmo_dict):
             if "h" not in conversions:
                 raise ValueError(missing_h_message)
             phys_key = physical_keys[i]
-            conversions[phys_key] = conversions[frac_key] * conversions["h"] ** 2
+            conversions[phys_key] = \
+                conversions[frac_key] * conversions["h"] ** 2
     
     return conversions
    
@@ -263,19 +264,25 @@ def cosmology_to_Pk(**kwargs):
 
     emu_vector = cosmology_to_emu_vec(cosmology)
     
-    # Can I use an API that I can't necessarily "see"? i.e. does it work to
-    # access trainer fn.s if cassL-dev isn't installed?
-    
+    # Again, we have to de-nest
     if len(emu_vector) == 6: # massive neutrinos
-        return nu_trainer.p_emu.predict(emu_vector), \
-            nu_trainer.delta_emu.predict(emu_vector)
+        return nu_trainer.p_emu.predict(emu_vector)[0], \
+            nu_trainer.delta_emu.predict(emu_vector)[0]
     elif len(emu_vector) == 4: # massless neutrinos
-        return zm_trainer.p_emu.predict(emu_vector), \
-            zm_trainer.delta_emu.predict(emu_vector)
+        return zm_trainer.p_emu.predict(emu_vector)[0], \
+            zm_trainer.delta_emu.predict(emu_vector)[0]
 
 
 def add_sigma12(cosmology):
     """
+    Estimate the sigma12 value given the parameters specified by cosmology.
+    This involves:
+    1. An emulator prediction for sigma12 based on omega_b, omega_cdm, and n_s,
+        where all other parameters are taken from the Planck best fit.
+    2. An analytical rescaling of this prediction based on the provided
+        evolution parameters (although, as part of this step, the values of
+        omega_b and omega_cdm are used again).
+    
     @cosmology should be a fully filled-in Brenda Cosmology object.
     """
     new_cosmology = cp.deepcopy(cosmology)
