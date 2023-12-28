@@ -6,7 +6,7 @@ from cassL import camb_interface as ci
 import os
 
 #!! Matteo's code, which still needs to be gracefully incorporated
-import cosmo_tools
+import cosmo_tools as brenda
 
 import scipy
 import warnings
@@ -15,12 +15,12 @@ import warnings
 # it makes debugging easier: we'll quickly understand whether there is a problem
 # with the dev code or the user code.
 DEFAULT_COSMOLOGY = {
-    'omB': 0.022445,
-    'omC': 0.120567,
-    'n_s': 0.96,
-    'A_s': 2.127238e-9,
-    'omK': 0,
-    'omDE': 0.305888,
+    'omega_b': 0.022445,
+    'omega_cdm': 0.120567,
+    'ns': 0.96,
+    'As': 2.127238e-9,
+    'omega_K': 0,
+    'omega_DE': 0.305888,
     'h': 0.67
 }
 
@@ -70,7 +70,7 @@ def dictionary_to_emu_vec(dictionary):
     and from which it can predict a power spectrum.
     """
     # Regardless of whether we use the massless or massive emu,
-    # we need omega_b, omega_c, n_s, and sigma12
+    # we need omega_b, omega_c, ns, and sigma12
     
     # We may want to allow the user to turn off error checking if a lot of
     # predictions need to be tested all at once...
@@ -87,9 +87,9 @@ def dictionary_to_emu_vec(dictionary):
         return 23
     
     base = np.array([
-        dictionary["omB"],
-        dictionary["omC"],
-        dictionary["n_s"],
+        dictionary["omega_b"],
+        dictionary["omega_cdm"],
+        cosmology.pars["ns"],
         dictionary["sigma12"]
     ])
     
@@ -225,9 +225,9 @@ missing_shape_message = "The value of {} was not provided. This is an " + \
 
 def transcribe_cosmology(**kwargs):
     """
-    Turn a set of arguments into a complete cosmology dictionary. Cosmology
-    dictionaries follow a particular format for compatibility with the fn.s in
-    this script that return various power spectra power.
+    Turn a set of arguments into a complete Cosmology object. Cosmology
+    objects follow a particular format for compatibility with the fn.s in
+    this script (and in Brendalib) that return various power spectra power.
     
     This fn. thoroughly error-checks the arguments to verify that they represent
     a consistent and complete cosmology. Mostly, completeness is not a problem
@@ -255,6 +255,11 @@ def transcribe_cosmology(**kwargs):
         Physical density in dark energy
     OmDE: float
         Fractional density in dark energy
+        
+    omnu: float
+        Physical density in neutrinos
+    Omnu: float
+        Fractional density in neutrinos
     
     omK: float
         Physical density in curvature
@@ -266,10 +271,10 @@ def transcribe_cosmology(**kwargs):
     H0: float
         Hubble parameter in km / s / Mpc
         
-    n_s: float
+    ns: float
         Spectral index of the primordial power spectrum
     
-    A_s: float
+    As: float
         Scalar mode amplitude of the primordial power spectrum
         
     !!!
@@ -278,25 +283,27 @@ def transcribe_cosmology(**kwargs):
         Maybe we should leave redshift as a separate input in the various fn.s
         of this script?
     """
-    # To-do: add support for "wa" and "w0"
-    if "w" in kwargs or "w0" in kwargs or "wa" in kwargs:
-        raise NotImplementedError("This fn does not yet support DE EoS " + \
-                                    "customization.")
-
-    # This is an arbitrarily-formatted dictionary just for internal use in this
-    # function; it helps to keep track of values that may need to be converted
-    # or inferred from others.
+    # Instead of directly building a brenda Cosmology, we use this temporary
+    # dictionary; it helps to keep track of values that may need to be
+    # converted or inferred from others.
     conversions = {}
+    
+    if "w" in kwargs:
+        conversions["w0"] = kwargs["w"]
+    if "w0" in kwargs:
+        conversions["w0"] = kwargs["w0"]
+    if "wa" in kwargs:
+        conversions["wa"] = kwargs["wa"]
 
     # Make sure that no parameters are doubly-defined
-    if "omB" in kwargs and "OmB" in kwargs:
+    if "omega_b" in kwargs and "Omega_b" in kwargs:
         raise ValueError(str.format(doubly_defined_message, "baryons"))
-    if "omC" in kwargs and "OmC" in kwargs:
+    if "omega_cdm" in kwargs and "Omega_cdm" in kwargs:
         raise ValueError(str.format(doubly_defined_message,
                                       "cold dark matter"))
-    if "omDE" in kwargs and "OmDE" in kwargs:
+    if "omega_DE" in kwargs and "Omega_DE" in kwargs:
         raise ValueError(str.format(doubly_defined_message, "dark energy"))
-    if "omK" in kwargs and "OmK" in kwargs:
+    if "omega_K" in kwargs and "Omega_K" in kwargs:
         raise ValueError(str.format(doubly_defined_message, "curvature"))
     if "h" in kwargs and "H0" in kwargs:
         raise ValueError("Do not specify h and H0 simultaneously. Specify " + \
@@ -304,8 +311,8 @@ def transcribe_cosmology(**kwargs):
 
     # Make sure at most two of the three are defined: h, omega_curv, omega_DE
     if "h" in kwargs or "H0" in kwargs:
-        if "OmDE" in kwargs or "omDE" in kwargs:
-            if "OmK" in kwargs or "omk" in kwargs:
+        if "Omega_DE" in kwargs or "omega_DE" in kwargs:
+            if "Omega_K" in kwargs or "omk" in kwargs:
                 raise ValueError(spec_conflict_message)
 
     # If h is present, set it right away, so that we can begin converting
@@ -316,8 +323,8 @@ def transcribe_cosmology(**kwargs):
         conversions["h"] = kwargs["H0"] / 100
 
     # Make sure that h is present, in the event that fractionals are given
-    fractional_keys = ["OmB", "OmC", "OmDE", "OmK", "Omnu"]
-    physical_keys = ["omB", "omC", "omDE", "omK", "omnu"]
+    fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", "Omnu"]
+    physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", "omnu"]
     
     for i in range(len(fractional_keys)):
         frac_key = fractional_keys[i]
@@ -335,14 +342,14 @@ def transcribe_cosmology(**kwargs):
     
     # Now complain about missing entries. We have to fill in missing densities
     # immediately because they will be used to find h.
-    if "omB" not in kwargs:
-        warnings.warn(str.format(missing_shape_message, "omB"))
-        conversions["omB"] = DEFAULT_COSMOLOGY["omB"]
+    if "omega_b" not in kwargs:
+        warnings.warn(str.format(missing_shape_message, "omega_b"))
+        conversions["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
 
     # Ditto with cold dark matter.
-    if "omC" not in kwargs:
-        warnings.warn(str.format(missing_shape_message, "omC"))
-        conversions["omC"] = DEFAULT_COSMOLOGY["omC"]
+    if "omega_cdm" not in kwargs:
+        warnings.warn(str.format(missing_shape_message, "omega_cdm"))
+        conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
 
     # Ditto with neutrinos.
     if "omnu" not in kwargs:
@@ -351,51 +358,62 @@ def transcribe_cosmology(**kwargs):
         conversions["omnu"] = DEFAULT_COSMOLOGY["omnu"]
 
     # Ditto with the spectral index.
-    if "n_s" not in kwargs:
-        warnings.warn(str.format(missing_shape_message, "n_s"))
-        conversions["n_s"] = DEFAULT_COSMOLOGY["n_s"]
+    if "ns" not in kwargs:
+        warnings.warn(str.format(missing_shape_message, "ns"))
+        conversions["ns"] = DEFAULT_COSMOLOGY["ns"]
         
     if "z" not in kwargs:
         warnings.warn("No redshift given. Using z=0...")
         conversions["z"] = 0
 
-    omM = conversions["omB"] + conversions["omC"] + conversions["omnu"]
+    omM = conversions["omega_b"] + conversions["omega_cdm"] + conversions["omnu"]
 
     # The question is, when omK is not specified, should we immediately set it
     # to default, or immediately set h to default and back-calculate curvature?
-    if "omDE" in conversions and "omK" not in conversions:
+    if "omega_DE" in conversions and "omega_K" not in conversions:
         if "h" not in conversions:
             # use default value for h
-            conversions["omK"] = DEFAULT_COSMOLOGY["omK"]
+            conversions["omega_K"] = DEFAULT_COSMOLOGY["omega_K"]
         else:
-            conversions["omK"] = \
-                conversions["h"] ** 2 - omM - conversions["omDE"]
+            conversions["omega_K"] = \
+                conversions["h"] ** 2 - omM - conversions["omega_DE"]
 
     # Analogous block for dark energy
-    if "omK" in conversions and "omDE" not in conversions:
+    if "omega_K" in conversions and "omega_DE" not in conversions:
         if "h" not in conversions:
             # use default value for h
             conversions["h"] = DEFAULT_COSMOLOGY["h"]
         else:
-            conversions["omDE"] = \
-                conversions["h"] ** 2 - omM - conversions["omK"]
+            conversions["omega_DE"] = \
+                conversions["h"] ** 2 - omM - conversions["omega_K"]
 
     # Fill in default values for density parameters, because we need these to
     # compute h
-    if "omK" not in conversions:
-        conversions["omK"] = DEFAULT_COSMOLOGY["omK"]
+    if "omega_K" not in conversions:
+        conversions["omega_K"] = DEFAULT_COSMOLOGY["omega_K"]
 
     # If omDE was never given, there's no point in calculating h
-    if "omDE" not in conversions:
+    if "omega_DE" not in conversions:
         conversions["h"] = DEFAULT_COSMOLOGY["h"]
-        conversions["omDE"] = DEFAULT_COSMOLOGY["omDE"]
+        conversions["omega_DE"] = DEFAULT_COSMOLOGY["omega_DE"]
 
     # If h wasn't given, compute it now that we have all of the physical
     # densities.
     if "h" not in conversions:
         DEFAULT_COSMOLOGY["h"] = np.sqrt(omM + omDE + omK)
         
-    return conversions
+    raise 1 / 0    
+        
+    # package it up for brenda
+    if "As" not in conversions:
+        conversions["As"] = DEFAULT_COSMOLOGY["As"]
+    
+    cosmology = brenda.Cosmology()  
+    conversions["de_model"] = "w0wa"
+    # The omegaK field will be ignored, but remembered through h
+    cosmology.pars = conversions
+        
+    return cosmology
 
 def scale_sigma12(**kwargs):
     """
@@ -410,10 +428,10 @@ def scale_sigma12(**kwargs):
     """
     conversions = transcribe_cosmology(kwargs)
 
-    omM = conversions["omB"] + conversions["omC"]
+    omM = conversions["omega_b"] + conversions["omega_cdm"]
     OmM = omM / conversions["h"] ** 2
-    OmK = conversions["omK"] / conversions["h"] ** 2
-    OmDE = conversions["omDE"] / conversions["h"] ** 2
+    OmK = conversions["omega_K"] / conversions["h"] ** 2
+    OmDE = conversions["omega_DE"] / conversions["h"] ** 2
     
     LGF = linear_growth_factor(OmM, OmK, OmDE, conversions["z"])
     
