@@ -62,6 +62,10 @@ def estimate_sigma12(dictionary):
     
     # Second, scale that sigma12 according to the growth factor and A_s
 
+ambiguous_sigma12_message = "sigma12 and at least one evolution parameter " + \
+    "were simultaneously specified. If the desired sigma12 is already " + \
+    "known, no evolution parameters should appear."
+
 spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
     "dark energy, and the Hubble parameter. Set two of the three, and " + \
     "Cassandra-Linear will automatically handle the third."
@@ -77,6 +81,11 @@ def error_check_cosmology(**kwargs):
     Provides clear error messages for some, but not all, cases of ambiguity or
     inconsistency in the input parameters.
     """
+    # We may want to allow the user to turn off error checking if a lot of
+    # predictions need to be tested all at once...
+    if "sigma12" in dictionary and contains_ev_par(dictionary):
+        raise ValueError(ambiguous_sigma12_message)
+    
     # Make sure that no parameters are doubly-defined
     if "omega_b" in kwargs and "Omega_b" in kwargs:
         raise ValueError(str.format(doubly_defined_message, "baryons"))
@@ -157,36 +166,67 @@ def fill_in_defaults(**kwargs):
     if "omega_nu" in kwargs:
 
 def cosmology_to_Pk(**kwargs):
+    """
+    This fn wraps the trainer object...
+    
+    It automatically returns a prediction and the estimated uncertainty on that
+    prediction. I still don't really know why we re-invented the wheel, when
+    the GPR object itself gives an uncertainty. But let's see...
+    """
+
     error_check_cosmology()
     
     kwargs = convert_densities(kwargs)
     kwargs = fill_in_defaults(kwargs)
+    
+    if "sigma12" not in kwargs:
+        kwargs = add_sigma12(kwargs)
+
+    emu_vector = cosmology_to_emu_vec(kwargs)
+    
+    # Can I use an API that I can't necessarily "see"? i.e. does it work to
+    # access trainer fn.s if cassL-dev isn't installed?
+    
+    if len(emu_vector) == 6:
+        return nu_trainer.p_emu.predict(emu_vector)
+    elif len(emu_vector) == 4:
+        return zm_trainer.p_emu.predict(emu_vector)
 
     if "sigma12" in kwargs:
         # We don't need to bother with transcribe_cosmology
         return 23
 
+def add_sigma12(**kwargs):
+    cosmology = transcribe_cosmology(kwargs)
+
+    raise 1 / 0, "this needs to be normalized"
+
+    base = np.array([
+        cosmology.pars["omega_b"],
+        cosmology.pars["omega_cdm"],
+        cosmology.pars["ns"]
+    ])
+
+    # First, emulate sigma12 as though the evolution parameters were all given
+    # by the current best fit in the literature.
+    sigma12 = sigma12_trainer.p_emu.predict(base)
+    
+    # Now scale according to the evolution parameters
+    dictionary["sigma12"] = estimate_sigma12(dictionary)
+    
+    return 23
+
 def cosmology_to_emu_vec(cosmology):
     """
     Turn an input cosmology into an input vector that the emulator understands
     and from which it can predict a power spectrum.
+    
+    This needs to handle normalization, too.
     """
     # Regardless of whether we use the massless or massive emu,
     # we need omega_b, omega_c, ns, and sigma12
     
-    # We may want to allow the user to turn off error checking if a lot of
-    # predictions need to be tested all at once...
-    if "sigma12" in dictionary and contains_ev_par(dictionary):
-        raise ValueError("sigma12 and at least one evolution parameter " + \
-            "were simultaneously specified. If the desired sigma12 is " + \
-            "already known, no evolution parameters should appear.")
-
-    if "sigma12" not in dictionary:
-        # We have to emulate this
-        sigma12 = sigma12_trainer.p_emu.predict(base)
-        # Now scale according to 
-        dictionary["sigma12"] = estimate_sigma12(dictionary)
-        return 23
+    raise 1 / 0, "this needs to be normalized"
     
     base = np.array([
         dictionary["omega_b"],
@@ -203,35 +243,6 @@ def cosmology_to_emu_vec(cosmology):
             dictionary["omnu"]
         ])
         return np.append(base, extension)
-    
-
-def predict(dictionary):
-    """
-    This fn wraps the trainer object...
-    
-    It automatically returns a prediction and the estimated uncertainty on that
-    prediction. I still don't really know why we re-invented the wheel, when
-    the GPR object itself gives an uncertainty. But let's see...
-    """
-    # Can I use an API that I can't necessarily see?
-    # i.e. does it work to access trainer fn.s if cassL-dev isn't
-    # installed?
-    
-    # If the user has not provided a sigma12 value, we need to compute it from
-    # the evolution parameters. If there is a sigma12 value, we need to 
-    # complain in the presence of evolution parameters...
- 
-    if dictionary["omega_nu"] == 0:
-        raise NotImplementedError("activate massless-neutrino emu")
-        
-        # Don't forget to normalize the x first!!
-        test_predictions[i] = self.p_emu.predict(X_test[i])
-    else
-        raise NotImplementedError("activate massive-neutrino emu")
-        
-    # Now apply some rescaling to the result based on the provided evolution
-    # parameters...
-    return 23
     
 
 def prior_file_to_array(prior_name="COMET_with_nu"):
@@ -258,55 +269,6 @@ def prior_file_to_array(prior_name="COMET_with_nu"):
 
     return param_ranges
 
-
-def get_data_dict(scenario_name):
-    #! WATCH OUT! THIS FUNCTION ASSUMES MASSIVE NEUTRINOS ALWAYS
-
-    # This will return a dictionary which the new iteration of
-    # build_and_test_emulator will be able to expand into all of the info
-    # necessary to build an emulator.
-    
-    # e.g. emu_name is Hnu2_5k_knockoff
-    
-    scenario = get_scenario(scenario_name)
-    
-    # This function will have to be expanded dramatically once we implement
-    # the scenario structure
-    directory = "data_sets/" + scenario_name + "/"
-    data_dict = {"emu_name": scenario_name}
-
-    X_train = np.load(directory + "lhc_train_final.npy", allow_pickle=False)
-    data_dict["X_train"] = X_train
-
-    Y_train = np.load(directory + "samples_train.npy", allow_pickle=False)
-    data_dict["Y_train"] = Y_train
-
-    if scenario["same_test_set"] is not None:
-        directory = "data_sets/" + scenario["same_test_set"] + "/"
-
-    X_test = np.load(directory + "lhc_test_final.npy", allow_pickle=False)
-    data_dict["X_test"] = X_test
-    
-    Y_test = np.load(directory + "samples_test.npy", allow_pickle=False)
-    data_dict["Y_test"] = Y_test
-    
-    data_dict["priors"] = prior_file_to_array(scenario["priors"])
-
-    return data_dict
-
-
-def E2(OmM_0, OmK_0, OmDE_0, z):
-    return OmM_0 * (1 + z) ** 3 + OmK_0 * (1 + z) ** 2 + OmDE_0
-
-
-def linear_growth_factor(OmM_0, OmK_0, OmDE_0, z):
-    def integrand(zprime):
-        return (1 + zprime) / np.power(E2(OmM_0, OmK_0, OmDE_0, zprime), 1.5)
-
-    coefficient = 2.5 * OmM_0 * np.sqrt(E2(OmM_0, OmK_0, OmDE_0, z))
-    integral = scipy.integrate.quad(integrand, z, np.inf)[0]
-    return coefficient * integral
-    
 
 def transcribe_cosmology(**kwargs):
     """
