@@ -11,9 +11,6 @@ import cosmo_tools as brenda
 import scipy
 import warnings
 
-# One of the benefits of distancing ourselves from the camb naming scheme is
-# it makes debugging easier: we'll quickly understand whether there is a problem
-# with the dev code or the user code.
 DEFAULT_COSMOLOGY = {
     'omega_b': 0.022445,
     'omega_cdm': 0.120567,
@@ -25,6 +22,36 @@ DEFAULT_COSMOLOGY = {
     'sigma12': 0.82476394,
     'LGF': 0.7898639094999238
 }
+
+
+def prior_file_to_array(prior_name="COMET"):
+    """
+    !
+    """
+    param_ranges = None
+
+    prior_file = data_prefix + "priors/" + prior_name + ".txt"
+    
+    with open(prior_file, 'r') as file:
+        lines = file.readlines()
+        key = None
+        for line in lines:
+            if line[0] != "$":
+                bounds = line.split(",")
+                # Extra layer of square brackets so that np.append works
+                bounds = np.array([[float(bounds[0]), float(bounds[1])]])
+                
+                if param_ranges is None:
+                    param_ranges = bounds
+                else:
+                    param_ranges = np.append(param_ranges, bounds, axis=0)
+
+    return param_ranges
+    
+PRIORS = prior_file_to_array("COMET")
+
+def within_prior(value, index):
+    return value >= PRIORS[index][0] and value <= PRIORS[index][1]
 
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 
@@ -51,19 +78,20 @@ def contains_ev_par(dictionary):
             
     return False
 
-ambiguous_sigma12_message = "sigma12 and at least one evolution parameter " + \
+ambiguous_sigma12_msg = "sigma12 and at least one evolution parameter " + \
     "were simultaneously specified. If the desired sigma12 is already " + \
     "known, no evolution parameters should appear."
 
-spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
+spec_conflict_msg = "Do not attempt to simultaneously set curvature, " + \
     "dark energy, and the Hubble parameter. Set two of the three, and " + \
     "Cassandra-Linear will automatically handle the third."
 
-# "Handle" is kind of a misleading term; if the user specifies a physical
-# density, we won't bother with fractions at all.
-doubly_defined_message = "Do not simultaneously specify the physical and " + \
+doubly_defined_msg = "Do not simultaneously specify the physical and " + \
     "fractional density in {}. Specify one, and " + \
     "Cassandra-Linear will automatically handle the other."
+    
+out_of_bounds_msg = "The given value for {} falls outside of the range " + \
+    "over which the emulators were trained. Try a less extreme value."
 
 def error_check_cosmology(**kwargs):
     """
@@ -72,19 +100,21 @@ def error_check_cosmology(**kwargs):
     """
     # We may want to allow the user to turn off error checking if a lot of
     # predictions need to be tested all at once...
+    
+    # Make sure that the user EITHER specifies sigma12 or ev. param.s
     if "sigma12" in dictionary and contains_ev_par(dictionary):
-        raise ValueError(ambiguous_sigma12_message)
+        raise ValueError(ambiguous_sigma12_msg)
     
     # Make sure that no parameters are doubly-defined
     if "omega_b" in kwargs and "Omega_b" in kwargs:
-        raise ValueError(str.format(doubly_defined_message, "baryons"))
+        raise ValueError(str.format(doubly_defined_msg, "baryons"))
     if "omega_cdm" in kwargs and "Omega_cdm" in kwargs:
-        raise ValueError(str.format(doubly_defined_message,
+        raise ValueError(str.format(doubly_defined_msg,
                                       "cold dark matter"))
     if "omega_DE" in kwargs and "Omega_DE" in kwargs:
-        raise ValueError(str.format(doubly_defined_message, "dark energy"))
+        raise ValueError(str.format(doubly_defined_msg, "dark energy"))
     if "omega_K" in kwargs and "Omega_K" in kwargs:
-        raise ValueError(str.format(doubly_defined_message, "curvature"))
+        raise ValueError(str.format(doubly_defined_msg, "curvature"))
     if "h" in kwargs and "H0" in kwargs:
         raise ValueError("Do not specify h and H0 simultaneously. " + \
             "Specify one, and Cassandra-Linear will automatically handle " + \
@@ -94,7 +124,7 @@ def error_check_cosmology(**kwargs):
     if "h" in kwargs or "H0" in kwargs:
         if "Omega_DE" in kwargs or "omega_DE" in kwargs:
             if "Omega_K" in kwargs or "omega_k" in kwargs:
-                raise ValueError(spec_conflict_message)
+                raise ValueError(spec_conflict_msg)
     
 
 fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
@@ -135,24 +165,39 @@ def fill_in_defaults(**kwargs):
     if "omega_b" not in kwargs:
         warnings.warn(str.format(missing_shape_message, "omega_b"))
         conversions["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
+    elif not within_prior(cosmology.pars["omega_b"], 0):
+        raise ValueError(str.format(out_of_bounds_msg, "omega_b"))
 
     # Ditto with cold dark matter.
     if "omega_cdm" not in kwargs:
         warnings.warn(str.format(missing_shape_message, "omega_cdm"))
         conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
+    elif not within_prior(cosmology.pars["omega_cdm"], 1):
+        raise ValueError(str.format(out_of_bounds_msg, "omega_cdm"))
 
     # Ditto with the spectral index.
     if "ns" not in kwargs:
         warnings.warn(str.format(missing_shape_message, "ns"))
         conversions["ns"] = DEFAULT_COSMOLOGY["ns"]
+    elif not within_prior(cosmology.pars["ns"], 2):
+        raise ValueError(str.format(out_of_bounds_msg, "ns"))
     
     # Ditto with neutrinos.
     if "omega_nu" not in kwargs:
         warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
                       "massless neutrinos..."))
         conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
-        
-    if "omega_nu" in kwargs:
+    else:
+        if "A_s" not in kwargs:
+            warnings.warn("The value of 'As' was not provided, even " + \
+                          "though massive neutrinos were requested. " + \
+                          "Setting to the Planck best fit value...")
+        if not within_prior(cosmology.pars["omega_nu"], 5):
+            raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
+            
+    if "A|s" in kwargs and not within_prior(cosmology.pars["As"], 4):
+        raise ValueError(str.format(out_of_bounds_msg, "As"))
+    
 
 def cosmology_to_Pk(**kwargs):
     """
@@ -172,6 +217,9 @@ def cosmology_to_Pk(**kwargs):
     
     if "sigma12" not in cosmology.pars:
         add_sigma12(cosmology)
+    else:
+        if not within_prior(cosmology.pars["sigma12"], 3):
+            raise ValueError(str.format(out_of_bounds_msg, "sigma12"))
 
     emu_vector = cosmology_to_emu_vec(cosmology)
     
@@ -203,6 +251,12 @@ def add_sigma12(cosmology):
     sigma12_m0 = sigma12_trainer.p_emu.predict(base_normalized)
     
     cosmology.pars["sigma12"] = scale_sigma12(cosmology, sigma12_m0)
+    
+    if not within_prior(cosmology.pars["sigma12"], 3):
+        raise ValueError("The given evolution parameters are invalid " + \
+            "because they result in a sigma12 value outside our priors. " + \
+            "Try a less extreme configuration.")
+    
     return cosmology
     
 def scale_sigma12(cosmology, sigma12_m0):
