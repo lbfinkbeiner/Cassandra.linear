@@ -319,7 +319,7 @@ def scale_sigma12(cosmology, sigma12_m0):
         An estimate of the sigma12 given the cosmological parameters associated
         with @cosmology.
     """
-    a = 1.0 / (1.0 + cosmology["z"])
+    a = 1.0 / (1.0 + cosmology.pars["z"])
     
     #! Should I be concerned about this a0 parameter?
     # After some cursory tests, I found that it has very little impact.
@@ -329,9 +329,9 @@ def scale_sigma12(cosmology, sigma12_m0):
     # If the user specified no A_s value, the following factor automatically
     # disappears because, in this case, transcribe_cosmology sets
     # cosmology["As"] = DEFAULT_COSMOLOGY["As"]
-    As_ratio = cosmology["As"] / DEFAULT_COSMOLOGY["As"]
+    As_ratio = cosmology.pars["As"] / DEFAULT_COSMOLOGY["As"]
     
-    return DEFAULT_COSMOLOGY["sigma12"] * growth_ratio * np.sqrt(As_ratio)
+    return sigma12_m0 * growth_ratio * np.sqrt(As_ratio)
 
 def cosmology_to_emu_vec(cosmology):
     """
