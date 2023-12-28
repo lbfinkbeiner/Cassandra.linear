@@ -21,12 +21,10 @@ DEFAULT_COSMOLOGY = {
     'As': 2.127238e-9,
     'omega_K': 0,
     'omega_DE': 0.305888,
-    'h': 0.67
+    'h': 0.67,
+    'sigma12': 0.82476394,
+    'LGF': 0.7898639094999238
 }
-
-DEFAULT_SIGMA12 = 0.82476394
-# linear growth factor
-DEFAULT_LGF = 0.7898639094999238
 
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 
@@ -64,7 +62,111 @@ def estimate_sigma12(dictionary):
     
     # Second, scale that sigma12 according to the growth factor and A_s
 
-def dictionary_to_emu_vec(dictionary):
+spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
+    "dark energy, and the Hubble parameter. Set two of the three, and " + \
+    "Cassandra-Linear will automatically handle the third."
+
+# "Handle" is kind of a misleading term; if the user specifies a physical
+# density, we won't bother with fractions at all.
+doubly_defined_message = "Do not simultaneously specify the physical and " + \
+    "fractional density in {}. Specify one, and " + \
+    "Cassandra-Linear will automatically handle the other."
+
+def error_check_cosmology(**kwargs):
+    """
+    Provides clear error messages for some, but not all, cases of ambiguity or
+    inconsistency in the input parameters.
+    """
+    # Make sure that no parameters are doubly-defined
+    if "omega_b" in kwargs and "Omega_b" in kwargs:
+        raise ValueError(str.format(doubly_defined_message, "baryons"))
+    if "omega_cdm" in kwargs and "Omega_cdm" in kwargs:
+        raise ValueError(str.format(doubly_defined_message,
+                                      "cold dark matter"))
+    if "omega_DE" in kwargs and "Omega_DE" in kwargs:
+        raise ValueError(str.format(doubly_defined_message, "dark energy"))
+    if "omega_K" in kwargs and "Omega_K" in kwargs:
+        raise ValueError(str.format(doubly_defined_message, "curvature"))
+    if "h" in kwargs and "H0" in kwargs:
+        raise ValueError("Do not specify h and H0 simultaneously. " + \
+            "Specify one, and Cassandra-Linear will automatically handle " + \
+            "the other.")
+
+    # Make sure at most two of the three are defined: h, omega_curv, omega_DE
+    if "h" in kwargs or "H0" in kwargs:
+        if "Omega_DE" in kwargs or "omega_DE" in kwargs:
+            if "Omega_K" in kwargs or "omega_k" in kwargs:
+                raise ValueError(spec_conflict_message)
+    
+
+fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
+                   "Omega_nu"]
+physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
+                 "omega_nu"]
+   
+def convert_densities(**kwargs):
+    """
+    Convert any fractional densities specified in kwargs, and raise an
+    error if there exists a fractional density without an accompanying h.
+    """
+    # If h is present, set it right away, so that we can begin converting
+    # fractional densities.
+    if "H0" in kwargs:
+        kwargs["h"] = kwargs["H0"] / 100
+ 
+    for i in range(len(fractional_keys)):
+        frac_key = fractional_keys[i]
+        if frac_key in kwargs:
+            # Make sure that h is present, in the event that a fractional
+            # density parameter was given.
+            if "h" not in kwargs:
+                raise ValueError(missing_h_message)
+            phys_key = physical_keys[i]
+            kwargs[phys_key] = kwargs[frac_key] * kwargs["h"] ** 2
+    
+    return kwargs
+   
+missing_h_message = "A fractional density parameter was specified, but no " + \
+    "value of 'h' was provided."    
+   
+def fill_in_defaults(**kwargs):
+    """
+    Take an input cosmology and fill in missing values with defaults until it
+    meets the requirements for emu prediction. 
+    """
+    if "omega_b" not in kwargs:
+        warnings.warn(str.format(missing_shape_message, "omega_b"))
+        conversions["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
+
+    # Ditto with cold dark matter.
+    if "omega_cdm" not in kwargs:
+        warnings.warn(str.format(missing_shape_message, "omega_cdm"))
+        conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
+
+    # Ditto with the spectral index.
+    if "ns" not in kwargs:
+        warnings.warn(str.format(missing_shape_message, "ns"))
+        conversions["ns"] = DEFAULT_COSMOLOGY["ns"]
+    
+    # Ditto with neutrinos.
+    if "omega_nu" not in kwargs:
+        warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
+                      "massless neutrinos..."))
+        conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
+        
+    if "omega_nu" in kwargs:
+
+def cosmology_to_Pk(**kwargs):
+    error_check_cosmology()
+    
+    kwargs = convert_densities(kwargs)
+    kwargs = fill_in_defaults(kwargs)
+
+    if "sigma12" in kwargs:
+        # We don't need to bother with transcribe_cosmology
+        return 23
+
+def cosmology_to_emu_vec(cosmology):
     """
     Turn an input cosmology into an input vector that the emulator understands
     and from which it can predict a power spectrum.
@@ -204,24 +306,7 @@ def linear_growth_factor(OmM_0, OmK_0, OmDE_0, z):
     coefficient = 2.5 * OmM_0 * np.sqrt(E2(OmM_0, OmK_0, OmDE_0, z))
     integral = scipy.integrate.quad(integrand, z, np.inf)[0]
     return coefficient * integral
-
-
-spec_conflict_message = "Do not attempt to simultaneously set curvature, " + \
-    "dark energy, and the Hubble parameter. Set two of the three, and " + \
-    "Cassandra-Linear will automatically handle the third."
-
-# "Handle" is kind of a misleading term; if the user specifies a physical
-# density, we won't bother with fractions at all.
-doubly_defined_message = "Do not simultaneously specify the physical and " + \
-    "fractional density in {}. Specify one, and " + \
-    "Cassandra-Linear will automatically handle the other."
     
-missing_h_message = "A fractional density parameter was specified, but no " + \
-    "value of 'h' was provided."
-    
-missing_shape_message = "The value of {} was not provided. This is an " + \
-    "emulated shape parameter and is required. Setting to the Planck " + \
-    "best-fit value..."
 
 def transcribe_cosmology(**kwargs):
     """
@@ -295,74 +380,18 @@ def transcribe_cosmology(**kwargs):
     if "wa" in kwargs:
         conversions["wa"] = kwargs["wa"]
 
-    # Make sure that no parameters are doubly-defined
-    if "omega_b" in kwargs and "Omega_b" in kwargs:
-        raise ValueError(str.format(doubly_defined_message, "baryons"))
-    if "omega_cdm" in kwargs and "Omega_cdm" in kwargs:
-        raise ValueError(str.format(doubly_defined_message,
-                                      "cold dark matter"))
-    if "omega_DE" in kwargs and "Omega_DE" in kwargs:
-        raise ValueError(str.format(doubly_defined_message, "dark energy"))
-    if "omega_K" in kwargs and "Omega_K" in kwargs:
-        raise ValueError(str.format(doubly_defined_message, "curvature"))
-    if "h" in kwargs and "H0" in kwargs:
-        raise ValueError("Do not specify h and H0 simultaneously. Specify " + \
-            "one, and Cassandra-Linear will automatically handle the other.")
-
-    # Make sure at most two of the three are defined: h, omega_curv, omega_DE
-    if "h" in kwargs or "H0" in kwargs:
-        if "Omega_DE" in kwargs or "omega_DE" in kwargs:
-            if "Omega_K" in kwargs or "omk" in kwargs:
-                raise ValueError(spec_conflict_message)
-
     # If h is present, set it right away, so that we can begin converting
     # fractional densities.
     if "h" in kwargs:
         conversions["h"] = kwargs["h"]
     elif "H0" in kwargs:
         conversions["h"] = kwargs["H0"] / 100
-
-    # Make sure that h is present, in the event that fractionals are given
-    fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
-                       "Omega_nu"]
-    physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
-                     "omega_nu"]
-    
-    for i in range(len(fractional_keys)):
-        frac_key = fractional_keys[i]
-        if frac_key in kwargs:
-            if "h" not in conversions:
-                raise ValueError(missing_h_message)
-            phys_key = physical_keys[i]
-            conversions[phys_key] = kwargs[frac_key] * conversions["h"] ** 2
     
     # Nothing else requires such conversions, so add the remaining values
     # directly to the working dictionary.
     for key, value in kwargs.items():
         if key not in fractional_keys:
             conversions[key] = value
-    
-    # Now complain about missing entries. We have to fill in missing densities
-    # immediately because they will be used to find h.
-    if "omega_b" not in kwargs:
-        warnings.warn(str.format(missing_shape_message, "omega_b"))
-        conversions["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
-
-    # Ditto with cold dark matter.
-    if "omega_cdm" not in kwargs:
-        warnings.warn(str.format(missing_shape_message, "omega_cdm"))
-        conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
-
-    # Ditto with neutrinos.
-    if "omega_nu" not in kwargs:
-        warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
-                      "massless neutrinos..."))
-        conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
-
-    # Ditto with the spectral index.
-    if "ns" not in kwargs:
-        warnings.warn(str.format(missing_shape_message, "ns"))
-        conversions["ns"] = DEFAULT_COSMOLOGY["ns"]
         
     if "z" not in kwargs:
         warnings.warn("No redshift given. Using z=0...")
