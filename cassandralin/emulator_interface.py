@@ -162,7 +162,7 @@ fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
 physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
                  "omega_nu"]
    
-def convert_densities(cosmo_dict):
+def convert_fractional_densities(cosmo_dict):
     """
     Convert any fractional densities specified in cosmo_dict, and raise an
     error if there exists a fractional density without an accompanying h.
@@ -245,13 +245,13 @@ def cosmology_to_Pk(**kwargs):
 
     error_check_cosmology(kwargs)
     
-    cosmo_dict = convert_densities(kwargs)
+    cosmo_dict = convert_fractional_densities(kwargs)
     cosmo_dict = fill_in_defaults(cosmo_dict)
     
     cosmology = transcribe_cosmology(cosmo_dict)
     
     if "sigma12" not in cosmology.pars:
-        add_sigma12(cosmology)
+        cosmology = add_sigma12(cosmology)
     else:
         if not within_prior(cosmology.pars["sigma12"], 3):
             raise ValueError(str.format(out_of_bounds_msg, "sigma12"))
@@ -263,36 +263,40 @@ def cosmology_to_Pk(**kwargs):
     
     if len(emu_vector) == 6: # massive neutrinos
         return nu_trainer.p_emu.predict(emu_vector), \
-            nu_trainer.unc_emu.predict(emu_vector)
+            nu_trainer.delta_emu.predict(emu_vector)
     elif len(emu_vector) == 4: # massless neutrinos
         return zm_trainer.p_emu.predict(emu_vector), \
-            zm_trainer.unc_emu.predict(emu_vector)
+            zm_trainer.delta_emu.predict(emu_vector)
 
 
 def add_sigma12(cosmology):
     """
     @cosmology should be a fully filled-in Brenda Cosmology object.
     """
+    new_cosmology = cp.deepcopy(cosmology)
+    
     base = np.array([
-        cosmology.pars["omega_b"],
-        cosmology.pars["omega_cdm"],
-        cosmology.pars["ns"]
+        new_cosmology.pars["omega_b"],
+        new_cosmology.pars["omega_cdm"],
+        new_cosmology.pars["ns"]
     ])
     
     base_normalized = sigma12_trainer.p_emu.convert_to_normalized_params(base)
 
     # First, emulate sigma12 as though the evolution parameters were all given
     # by the current best fit in the literature.
-    sigma12_m0 = sigma12_trainer.p_emu.predict(base_normalized)
     
-    cosmology.pars["sigma12"] = scale_sigma12(cosmology, sigma12_m0)
+    # Extreme de-nesting required due to the format of the emu's.
+    sigma12_m0 = sigma12_trainer.p_emu.predict(base_normalized)[0][0]
     
-    if not within_prior(cosmology.pars["sigma12"], 3):
+    new_cosmology.pars["sigma12"] = scale_sigma12(new_cosmology, sigma12_m0)
+    
+    if not within_prior(new_cosmology.pars["sigma12"], 3):
         raise ValueError("The given evolution parameters are invalid " + \
             "because they result in a sigma12 value outside our priors. " + \
             "Try a less extreme configuration.")
     
-    return cosmology
+    return new_cosmology
     
 def scale_sigma12(cosmology, sigma12_m0):
     """
@@ -336,9 +340,12 @@ def scale_sigma12(cosmology, sigma12_m0):
 def cosmology_to_emu_vec(cosmology):
     """
     Turn an input cosmology into an input vector that the emulator understands
-    and from which it can predict a power spectrum.
+    and from which it can predict a power spectrum. This includes
+    normalization, which is handled by the emulators themselves according to
+    the priors that they've stored.
     
-    This needs to handle normalization, too.
+    @cosmology: a Brenda Cosmology object which should already contain the
+        desired shape and evolution parameters.
     """
     base = np.array([
         cosmology.pars["omega_b"],
@@ -347,12 +354,12 @@ def cosmology_to_emu_vec(cosmology):
         cosmology.pars["sigma12"]
     ])
     
-    if cosmology["omega_nu"] == 0:
+    if cosmology.pars["omega_nu"] == 0:
         return zm_trainer.p_emu.convert_to_normalized_params(base)
     else:
         extension = np.array([
             cosmology.pars["As"],
-            cosmology.pars["omnu"]
+            cosmology.pars["omega_nu"]
         ])
         full_vector = np.append(base, extension)
         return nu_trainer.p_emu.convert_to_normalized_params(full_vector)
