@@ -5,6 +5,8 @@ from cassL import train_emu as te
 from cassL import camb_interface as ci
 import os
 
+import copy as cp
+
 #!! Matteo's code, which still needs to be gracefully incorporated
 import cosmo_tools as brenda
 
@@ -165,22 +167,24 @@ def convert_densities(cosmo_dict):
     Convert any fractional densities specified in cosmo_dict, and raise an
     error if there exists a fractional density without an accompanying h.
     """
+    conversions = cp.deepcopy(cosmo_dict)
+    
     # If h is present, set it right away, so that we can begin converting
     # fractional densities.
-    if "H0" in cosmo_dict:
-        cosmo_dict["h"] = cosmo_dict["H0"] / 100
+    if "H0" in conversions:
+        conversions["h"] = conversions["H0"] / 100
  
     for i in range(len(fractional_keys)):
         frac_key = fractional_keys[i]
-        if frac_key in cosmo_dict:
+        if frac_key in conversions:
             # Make sure that h is present, in the event that a fractional
             # density parameter was given.
-            if "h" not in cosmo_dict:
+            if "h" not in conversions:
                 raise ValueError(missing_h_message)
             phys_key = physical_keys[i]
-            cosmo_dict[phys_key] = cosmo_dict[frac_key] * cosmo_dict["h"] ** 2
+            conversions[phys_key] = conversions[frac_key] * conversions["h"] ** 2
     
-    return cosmo_dict
+    return conversions
    
 missing_h_message = "A fractional density parameter was specified, but no " + \
     "value of 'h' was provided."    
@@ -190,42 +194,45 @@ def fill_in_defaults(cosmo_dict):
     Take an input cosmology and fill in missing values with defaults until it
     meets the requirements for emu prediction. 
     """
-    if "omega_b" not in cosmo_dict:
+    conversions = cp.deepcopy(cosmo_dict)
+    
+    if "omega_b" not in conversions:
         warnings.warn(str.format(missing_shape_message, "omega_b"))
-        cosmo_dict["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
-    elif not within_prior(cosmo_dict["omega_b"], 0):
+        conversions["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
+    elif not within_prior(conversions["omega_b"], 0):
         raise ValueError(str.format(out_of_bounds_msg, "omega_b"))
 
     # Ditto with cold dark matter.
-    if "omega_cdm" not in cosmo_dict:
+    if "omega_cdm" not in conversions:
         warnings.warn(str.format(missing_shape_message, "omega_cdm"))
-        cosmo_dict["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
-    elif not within_prior(cosmo_dict["omega_cdm"], 1):
+        conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
+    elif not within_prior(conversions["omega_cdm"], 1):
         raise ValueError(str.format(out_of_bounds_msg, "omega_cdm"))
 
     # Ditto with the spectral index.
-    if "ns" not in cosmo_dict:
+    if "ns" not in conversions:
         warnings.warn(str.format(missing_shape_message, "ns"))
-        cosmo_dict["ns"] = DEFAULT_COSMOLOGY["ns"]
-    elif not within_prior(cosmo_dict["ns"], 2):
+        conversions["ns"] = DEFAULT_COSMOLOGY["ns"]
+    elif not within_prior(conversions["ns"], 2):
         raise ValueError(str.format(out_of_bounds_msg, "ns"))
     
     # Ditto with neutrinos.
-    if "omega_nu" not in cosmo_dict:
+    if "omega_nu" not in conversions:
         warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
                       "massless neutrinos...")
-        cosmo_dict["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
+        conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
     else:
-        if "As" not in cosmo_dict:
+        if "As" not in conversions:
             warnings.warn("The value of 'As' was not provided, even " + \
                           "though massive neutrinos were requested. " + \
                           "Setting to the Planck best fit value...")
-        if not within_prior(cosmo_dict["omega_nu"], 5):
+        if not within_prior(conversions["omega_nu"], 5):
             raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
             
-    if "As" in cosmo_dict and not within_prior(cosmo_dict["As"], 4):
+    if "As" in conversions and not within_prior(conversions["As"], 4):
         raise ValueError(str.format(out_of_bounds_msg, "As"))
-    
+
+    return conversions
 
 def cosmology_to_Pk(**kwargs):
     """
@@ -344,7 +351,7 @@ def cosmology_to_emu_vec(cosmology):
         return zm_trainer.p_emu.convert_to_normalized_params(base)
     else:
         extension = np.array([
-             cosmology.pars["As"],
+            cosmology.pars["As"],
             cosmology.pars["omnu"]
         ])
         full_vector = np.append(base, extension)
@@ -480,7 +487,7 @@ def transcribe_cosmology(cosmo_dict):
             cosmology["omega_DE"] + cosmology["omega_K"])
         
     for i in range(len(physical_keys)):
-        phs_key = physical_keys[i]
+        phys_key = physical_keys[i]
         frac_key = fractional_keys[i]
         if frac_key not in conversions:
             conversions[frac_key] = \
