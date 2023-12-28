@@ -323,8 +323,10 @@ def transcribe_cosmology(**kwargs):
         conversions["h"] = kwargs["H0"] / 100
 
     # Make sure that h is present, in the event that fractionals are given
-    fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", "Omnu"]
-    physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", "omnu"]
+    fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
+                       "Omega_nu"]
+    physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
+                     "omega_nu"]
     
     for i in range(len(fractional_keys)):
         frac_key = fractional_keys[i]
@@ -352,10 +354,10 @@ def transcribe_cosmology(**kwargs):
         conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
 
     # Ditto with neutrinos.
-    if "omnu" not in kwargs:
-        warnings.warn("The value of 'omnu' was not provided. Assuming " + \
+    if "omega_nu" not in kwargs:
+        warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
                       "massless neutrinos..."))
-        conversions["omnu"] = DEFAULT_COSMOLOGY["omnu"]
+        conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
 
     # Ditto with the spectral index.
     if "ns" not in kwargs:
@@ -366,17 +368,19 @@ def transcribe_cosmology(**kwargs):
         warnings.warn("No redshift given. Using z=0...")
         conversions["z"] = 0
 
-    omM = conversions["omega_b"] + conversions["omega_cdm"] + conversions["omnu"]
+    conversions["omega_m"] = conversions["omega_b"] + \
+        conversions["omega_cdm"] + conversions["omega_nu"]
 
-    # The question is, when omK is not specified, should we immediately set it
-    # to default, or immediately set h to default and back-calculate curvature?
+    # The question is, when omega_K is not specified, should we immediately set
+    # it to default, or immediately set h to default and back-calculate
+    # curvature?
     if "omega_DE" in conversions and "omega_K" not in conversions:
         if "h" not in conversions:
             # use default value for h
             conversions["omega_K"] = DEFAULT_COSMOLOGY["omega_K"]
         else:
-            conversions["omega_K"] = \
-                conversions["h"] ** 2 - omM - conversions["omega_DE"]
+            conversions["omega_K"] = conversions["h"] ** 2 - \
+                conversions["omega_m"] - conversions["omega_DE"]
 
     # Analogous block for dark energy
     if "omega_K" in conversions and "omega_DE" not in conversions:
@@ -384,8 +388,8 @@ def transcribe_cosmology(**kwargs):
             # use default value for h
             conversions["h"] = DEFAULT_COSMOLOGY["h"]
         else:
-            conversions["omega_DE"] = \
-                conversions["h"] ** 2 - omM - conversions["omega_K"]
+            conversions["omega_DE"] = conversions["h"] ** 2 - \
+                conversions["omega_m"] - conversions["omega_K"]
 
     # Fill in default values for density parameters, because we need these to
     # compute h
@@ -400,17 +404,28 @@ def transcribe_cosmology(**kwargs):
     # If h wasn't given, compute it now that we have all of the physical
     # densities.
     if "h" not in conversions:
-        DEFAULT_COSMOLOGY["h"] = np.sqrt(omM + omDE + omK)
+        DEFAULT_COSMOLOGY["h"] = np.sqrt(conversions["omega_m"] + \
+            cosmology["omega_DE"] + cosmology["omega_K"])
         
-    raise 1 / 0    
+    for i in range(len(physical_keys)):
+        phs_key = physical_keys[i]
+        frac_key = fractional_keys[i]
+        if frac_key not in conversions:
+            conversions[frac_key] = \
+                conversions[phys_key] / conversions["h"] ** 2    
         
     # package it up for brenda
     if "As" not in conversions:
         conversions["As"] = DEFAULT_COSMOLOGY["As"]
     
-    cosmology = brenda.Cosmology()  
+    cosmology = brenda.Cosmology()
+    conversions["Omega_m"] = conversions["omega_m"] / conversions["h"] ** 2
     conversions["de_model"] = "w0wa"
+    # Brenda lib doesn't distinguish nu from CDM
+    conversions["omega_cdm"] += conversions["omega_nu"]
+    conversions["Omega_cdm"] += conversions["Omega_nu"]
     # The omegaK field will be ignored, but remembered through h
+    # z will be ignored by brenda, but used by this code.
     cosmology.pars = conversions
         
     return cosmology
