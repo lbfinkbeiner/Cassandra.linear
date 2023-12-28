@@ -241,19 +241,19 @@ def scale_sigma12(cosmology, m0_sigma12):
         An estimate of the sigma12 given the cosmological parameters associated
         with @cosmology.
     """
-    omM = conversions["omega_b"] + conversions["omega_cdm"]
-    OmM = omM / conversions["h"] ** 2
-    OmK = conversions["omega_K"] / conversions["h"] ** 2
-    OmDE = conversions["omega_DE"] / conversions["h"] ** 2
+    a = 1.0 / (1.0 + cosmology["z"])
     
-    LGF = linear_growth_factor(OmM, OmK, OmDE, conversions["z"])
+    #! Should I be concerned about this a0 parameter?
+    # After some cursory tests, I found that it has very little impact.
+    LGF = cosmology.growth_factor(a, a0=1e-3, solver='odeint')
+    growth_ratio = LGF / DEFAULT_COSMOLOGY["LGF"]
     
     # If the user specified no A_s value, the following factor automatically
     # disappears because, in this case, transcribe_cosmology sets
     # cosmology["As"] = DEFAULT_COSMOLOGY["As"]
-    As_ratio = conversions["A_s"] / DEFAULT_COSMOLOGY["A_s"]
+    As_ratio = cosmology["As"] / DEFAULT_COSMOLOGY["As"]
     
-    return DEFAULT_SIGMA12 * LGF / DEFAULT_LGF * np.sqrt(As_ratio)
+    return DEFAULT_COSMOLOGY["sigma12"] * growth_ratio * np.sqrt(As_ratio)
 
 def cosmology_to_emu_vec(cosmology):
     """
