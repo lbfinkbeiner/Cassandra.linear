@@ -496,13 +496,22 @@ def transcribe_cosmology(cosmo_dict):
     # package it up for brenda
     if "As" not in conversions:
         conversions["As"] = DEFAULT_COSMOLOGY["As"]
-    
-    cosmology = brenda.Cosmology()
+
     conversions["Omega_m"] = conversions["omega_m"] / conversions["h"] ** 2
     conversions["de_model"] = "w0wa"
+    # We'll probably want to change this at some point, especially to allow
+    # stuff like the infamous Aletheia model 8.
+    conversions["Om_EdE"] = False
     # Brenda lib doesn't distinguish nu from CDM
     conversions["omega_cdm"] += conversions["omega_nu"]
     conversions["Omega_cdm"] += conversions["Omega_nu"]
+    conversions["sigma8"] = None
+    
+    cosmology = brenda.Cosmology()
+    for key in cosmology.pars.keys():
+        if key not in conversions:
+            conversions[key] = cosmology.pars[key]
+    
     # The omegaK field will be ignored, but remembered through h
     # z will be ignored by brenda, but used by this code.
     cosmology.pars = conversions
