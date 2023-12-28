@@ -34,6 +34,14 @@ data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 # there had better not be a sigma12 value...
 EV_PAR_KEYS = []
 
+# Load the emulators that we need.
+# sigma12 emu
+sigma12_trainer = np.load(data_prefix + "emus/sigma12.cle")
+# Massive-neutrino emu
+nu_trainer = np.load(data_prefix + "emus/Hnu2.cle")
+# Massless-neutrino emu ("zm" for "zero mass")
+zm_trainer = np.load(data_prefix + "emus/Hz1.cle")
+
 def contains_ev_par(dictionary):
     """
     Check if the cosmology specified by @dictionary contains a definition of
@@ -44,6 +52,17 @@ def contains_ev_par(dictionary):
             return true
             
     return False
+
+def estimate_sigma12(dictionary):
+    """
+    @dictionary should already be formatted according to the output of
+        transcribe_cosmology.
+    """
+    
+    # First, emulate sigma12 according to default evolution parameters
+    return 23
+    
+    # Second, scale that sigma12 according to the growth factor and A_s
 
 def dictionary_to_emu_vec(dictionary):
     """
@@ -59,9 +78,29 @@ def dictionary_to_emu_vec(dictionary):
         raise ValueError("sigma12 and at least one evolution parameter " + \
             "were simultaneously specified. If the desired sigma12 is " + \
             "already known, no evolution parameters should appear.")
+
+    if "sigma12" not in dictionary:
+        # We have to emulate this
+        sigma12 = sigma12_trainer.p_emu.predict(base)
+        # Now scale according to 
+        dictionary["sigma12"] = estimate_sigma12(dictionary)
+        return 23
+    
+    base = np.array([
+        dictionary["omB"],
+        dictionary["omC"],
+        dictionary["n_s"],
+        dictionary["sigma12"]
+    ])
     
     if "omnu" == 0:
-        return 23
+        return base
+    else:
+        extension = np.array([
+            dictionary["A_s"],
+            dictionary["omnu"]
+        ])
+        return np.append(base, extension)
     
 
 def predict(dictionary):
@@ -76,18 +115,10 @@ def predict(dictionary):
     # i.e. does it work to access trainer fn.s if cassL-dev isn't
     # installed?
     
-    # Wait a moment... isn't the saved emu file supposed to contain
-    # both the primary and unc emu's??
-    # Maybe we simply did this on a different machine...
-    nu_trainer = np.load(data_prefix + "emus/Hnu2.cle")
-    z_trainer = np.load(data_prefix + "emus/Hz1.cle")
-    
     # If the user has not provided a sigma12 value, we need to compute it from
     # the evolution parameters. If there is a sigma12 value, we need to 
     # complain in the presence of evolution parameters...
-    
-    
-    
+ 
     if dictionary["omega_nu"] == 0:
         raise NotImplementedError("activate massless-neutrino emu")
         
@@ -285,8 +316,8 @@ def transcribe_cosmology(**kwargs):
         conversions["h"] = kwargs["H0"] / 100
 
     # Make sure that h is present, in the event that fractionals are given
-    fractional_keys = ["OmB", "OmC", "OmDE", "OmK"]
-    physical_keys = ["omB", "omC", "omDE", "omK"]
+    fractional_keys = ["OmB", "OmC", "OmDE", "OmK", "Omnu"]
+    physical_keys = ["omB", "omC", "omDE", "omK", "omnu"]
     
     for i in range(len(fractional_keys)):
         frac_key = fractional_keys[i]
@@ -298,14 +329,12 @@ def transcribe_cosmology(**kwargs):
     
     # Nothing else requires such conversions, so add the remaining values
     # directly to the working dictionary.
-    
     for key, value in kwargs.items():
         if key not in fractional_keys:
             conversions[key] = value
     
-    # Now complain about missing entries.
-    # We have to fill in missing densities immediately because they will be
-    # used to find h.
+    # Now complain about missing entries. We have to fill in missing densities
+    # immediately because they will be used to find h.
     if "omB" not in kwargs:
         warnings.warn(str.format(missing_shape_message, "omB"))
         conversions["omB"] = DEFAULT_COSMOLOGY["omB"]
@@ -315,16 +344,22 @@ def transcribe_cosmology(**kwargs):
         warnings.warn(str.format(missing_shape_message, "omC"))
         conversions["omC"] = DEFAULT_COSMOLOGY["omC"]
 
+    # Ditto with neutrinos.
+    if "omnu" not in kwargs:
+        warnings.warn("The value of 'omnu' was not provided. Assuming " + \
+                      "massless neutrinos..."))
+        conversions["omnu"] = DEFAULT_COSMOLOGY["omnu"]
+
     # Ditto with the spectral index.
     if "n_s" not in kwargs:
         warnings.warn(str.format(missing_shape_message, "n_s"))
         conversions["n_s"] = DEFAULT_COSMOLOGY["n_s"]
-
+        
     if "z" not in kwargs:
         warnings.warn("No redshift given. Using z=0...")
         conversions["z"] = 0
 
-    omM = conversions["omB"] + conversions["omC"]
+    omM = conversions["omB"] + conversions["omC"] + conversions["omnu"]
 
     # The question is, when omK is not specified, should we immediately set it
     # to default, or immediately set h to default and back-calculate curvature?
@@ -358,7 +393,7 @@ def transcribe_cosmology(**kwargs):
     # If h wasn't given, compute it now that we have all of the physical
     # densities.
     if "h" not in conversions:
-        DEFAULT_COSMOLOGY["h"] = np.sqrt(omB + omC + omDE + omK)
+        DEFAULT_COSMOLOGY["h"] = np.sqrt(omM + omDE + omK)
         
     return conversions
 
@@ -381,7 +416,12 @@ def scale_sigma12(**kwargs):
     OmDE = conversions["omDE"] / conversions["h"] ** 2
     
     LGF = linear_growth_factor(OmM, OmK, OmDE, conversions["z"])
-    As_ratio = conversions["A_s"] / DEFAULT_COSMOLOGY["A_s"]
+    
+    #! Should we throw an error if A_s is specified without omega_nu?
+    #! I don't think so...
+    As_ratio = 1
+    if "A_s" in conversions:
+        As_ratio = conversions["A_s"] / DEFAULT_COSMOLOGY["A_s"]
     
     return DEFAULT_SIGMA12 * LGF / DEFAULT_LGF * np.sqrt(As_ratio)
 
