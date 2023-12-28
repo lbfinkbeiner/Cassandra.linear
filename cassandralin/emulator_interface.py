@@ -127,6 +127,11 @@ def error_check_cosmology(cosmo_dict):
             but since those parameters are shape parameters, we set them to
             default values very early on in the strange case that they are
             missing.)
+            
+    Mostly, completeness is not a problem for which we need error checking,
+    as missing parameters are generally inferred from the default (Planck best
+    fit) cosmology. As an exception, we do not infer h when the user specifies
+    fractional density parameters (see convert_fractional_densities).
     """
     # We may want to allow the user to turn off error checking if a lot of
     # predictions need to be tested all at once...
@@ -327,7 +332,8 @@ def scale_sigma12(cosmology, sigma12_m0):
     
     #! Should I be concerned about this a0 parameter?
     # After some cursory tests, I found that it has very little impact.
-    LGF = cosmology.growth_factor(a, a0=1e-3, solver='odeint')
+    # De-nest
+    LGF = cosmology.growth_factor(a, a0=1e-3, solver='odeint')[0]
     growth_ratio = LGF / DEFAULT_COSMOLOGY["LGF"]
     
     # If the user specified no A_s value, the following factor automatically
@@ -367,16 +373,9 @@ def cosmology_to_emu_vec(cosmology):
 
 def transcribe_cosmology(cosmo_dict):
     """
-    Turn a set of arguments into a complete Cosmology object. Cosmology
+    Turn a set of arguments into a complete Brenda Cosmology object. Cosmology
     objects follow a particular format for compatibility with the fn.s in
     this script (and in Brendalib) that return various power spectra power.
-    
-    This fn. thoroughly error-checks the arguments to verify that they
-    represent a consistent and complete cosmology. Mostly, completeness is not
-    a problem for the user, as missing parameters are generally inferred from
-    the default cosmology. However, for example, this fn will complain if the
-    user attempts to specify fractional density parameters without specifying
-    the value of the Hubble parameter.
     
     After this verification, the fn converts given quantities to desired
     quantities. For example, the code in this script primarily uses physical 
