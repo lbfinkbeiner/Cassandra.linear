@@ -110,7 +110,7 @@ doubly_defined_msg = "Do not simultaneously specify the physical and " + \
 out_of_bounds_msg = "The given value for {} falls outside of the range " + \
     "over which the emulators were trained. Try a less extreme value."
 
-def error_check_cosmology(**kwargs):
+def error_check_cosmology(cosmo_dict):
     """
     Provides clear error messages for some, but not all, cases of ambiguity or
     inconsistency in the input parameters.
@@ -119,28 +119,28 @@ def error_check_cosmology(**kwargs):
     # predictions need to be tested all at once...
     
     # Make sure that the user EITHER specifies sigma12 or ev. param.s
-    if "sigma12" in kwargs and contains_ev_par(kwargs):
+    if "sigma12" in cosmo_dict and contains_ev_par(cosmo_dict):
         raise ValueError(ambiguous_sigma12_msg)
     
     # Make sure that no parameters are doubly-defined
-    if "omega_b" in kwargs and "Omega_b" in kwargs:
+    if "omega_b" in cosmo_dict and "Omega_b" in cosmo_dict:
         raise ValueError(str.format(doubly_defined_msg, "baryons"))
-    if "omega_cdm" in kwargs and "Omega_cdm" in kwargs:
+    if "omega_cdm" in cosmo_dict and "Omega_cdm" in cosmo_dict:
         raise ValueError(str.format(doubly_defined_msg,
                                       "cold dark matter"))
-    if "omega_DE" in kwargs and "Omega_DE" in kwargs:
+    if "omega_DE" in cosmo_dict and "Omega_DE" in cosmo_dict:
         raise ValueError(str.format(doubly_defined_msg, "dark energy"))
-    if "omega_K" in kwargs and "Omega_K" in kwargs:
+    if "omega_K" in cosmo_dict and "Omega_K" in cosmo_dict:
         raise ValueError(str.format(doubly_defined_msg, "curvature"))
-    if "h" in kwargs and "H0" in kwargs:
+    if "h" in cosmo_dict and "H0" in cosmo_dict:
         raise ValueError("Do not specify h and H0 simultaneously. " + \
             "Specify one, and Cassandra-Linear will automatically handle " + \
             "the other.")
 
     # Make sure at most two of the three are defined: h, omega_curv, omega_DE
-    if "h" in kwargs or "H0" in kwargs:
-        if "Omega_DE" in kwargs or "omega_DE" in kwargs:
-            if "Omega_K" in kwargs or "omega_k" in kwargs:
+    if "h" in cosmo_dict or "H0" in cosmo_dict:
+        if "Omega_DE" in cosmo_dict or "omega_DE" in cosmo_dict:
+            if "Omega_K" in cosmo_dict or "omega_k" in cosmo_dict:
                 raise ValueError(spec_conflict_msg)
     
 
@@ -149,70 +149,70 @@ fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
 physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
                  "omega_nu"]
    
-def convert_densities(kwargs):
+def convert_densities(cosmo_dict):
     """
-    Convert any fractional densities specified in kwargs, and raise an
+    Convert any fractional densities specified in cosmo_dict, and raise an
     error if there exists a fractional density without an accompanying h.
     """
     # If h is present, set it right away, so that we can begin converting
     # fractional densities.
-    if "H0" in kwargs:
-        kwargs["h"] = kwargs["H0"] / 100
+    if "H0" in cosmo_dict:
+        cosmo_dict["h"] = cosmo_dict["H0"] / 100
  
     for i in range(len(fractional_keys)):
         frac_key = fractional_keys[i]
-        if frac_key in kwargs:
+        if frac_key in cosmo_dict:
             # Make sure that h is present, in the event that a fractional
             # density parameter was given.
-            if "h" not in kwargs:
+            if "h" not in cosmo_dict:
                 raise ValueError(missing_h_message)
             phys_key = physical_keys[i]
-            kwargs[phys_key] = kwargs[frac_key] * kwargs["h"] ** 2
+            cosmo_dict[phys_key] = cosmo_dict[frac_key] * cosmo_dict["h"] ** 2
     
-    return kwargs
+    return cosmo_dict
    
 missing_h_message = "A fractional density parameter was specified, but no " + \
     "value of 'h' was provided."    
    
-def fill_in_defaults(kwargs):
+def fill_in_defaults(cosmology):
     """
     Take an input cosmology and fill in missing values with defaults until it
     meets the requirements for emu prediction. 
     """
-    if "omega_b" not in kwargs:
+    if "omega_b" not in cosmology.pars:
         warnings.warn(str.format(missing_shape_message, "omega_b"))
-        conversions["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
+        cosmology.pars["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
     elif not within_prior(cosmology.pars["omega_b"], 0):
         raise ValueError(str.format(out_of_bounds_msg, "omega_b"))
 
     # Ditto with cold dark matter.
-    if "omega_cdm" not in kwargs:
+    if "omega_cdm" not in cosmology.pars:
         warnings.warn(str.format(missing_shape_message, "omega_cdm"))
-        conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
+        cosmology.pars["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
     elif not within_prior(cosmology.pars["omega_cdm"], 1):
         raise ValueError(str.format(out_of_bounds_msg, "omega_cdm"))
 
     # Ditto with the spectral index.
-    if "ns" not in kwargs:
+    if "ns" not in cosmology.pars:
         warnings.warn(str.format(missing_shape_message, "ns"))
-        conversions["ns"] = DEFAULT_COSMOLOGY["ns"]
+        cosmology.pars["ns"] = DEFAULT_COSMOLOGY["ns"]
     elif not within_prior(cosmology.pars["ns"], 2):
         raise ValueError(str.format(out_of_bounds_msg, "ns"))
     
     # Ditto with neutrinos.
-    if "omega_nu" not in kwargs:
+    if "omega_nu" not in cosmology.pars:
         warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
                       "massless neutrinos...")
-        conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
+        cosmology.pars["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
     else:
-        if "A_s" not in kwargs:
+        if "A_s" not in cosmology.pars:
             warnings.warn("The value of 'As' was not provided, even " + \
                           "though massive neutrinos were requested. " + \
                           "Setting to the Planck best fit value...")
         if not within_prior(cosmology.pars["omega_nu"], 5):
             raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
             
-    if "A|s" in kwargs and not within_prior(cosmology.pars["As"], 4):
+    if "A|s" in cosmology.pars and not within_prior(cosmology.pars["As"], 4):
         raise ValueError(str.format(out_of_bounds_msg, "As"))
     
 
@@ -225,12 +225,12 @@ def cosmology_to_Pk(**kwargs):
     the GPR object itself gives an uncertainty. But let's see...
     """
 
-    error_check_cosmology()
+    error_check_cosmology(kwargs)
     
-    kwargs = convert_densities(kwargs)
-    kwargs = fill_in_defaults(kwargs)
+    cosmo_dict = convert_densities(kwargs)
+    cosmo_dict = fill_in_defaults(cosm_dict)
     
-    cosmology = transcribe_cosmology(kwargs)
+    cosmology = transcribe_cosmology(cosmo_dict)
     
     if "sigma12" not in cosmology.pars:
         add_sigma12(cosmology)
@@ -340,7 +340,7 @@ def cosmology_to_emu_vec(cosmology):
         return nu_trainer.p_emu.convert_to_normalized_params(full_vector)
 
 
-def transcribe_cosmology(kwargs):
+def transcribe_cosmology(cosmo_dict):
     """
     Turn a set of arguments into a complete Cosmology object. Cosmology
     objects follow a particular format for compatibility with the fn.s in
@@ -405,27 +405,27 @@ def transcribe_cosmology(kwargs):
     # converted or inferred from others.
     conversions = {}
     
-    if "w" in kwargs:
-        conversions["w0"] = kwargs["w"]
-    if "w0" in kwargs:
-        conversions["w0"] = kwargs["w0"]
-    if "wa" in kwargs:
-        conversions["wa"] = kwargs["wa"]
+    if "w" in cosmo_dict:
+        conversions["w0"] = cosmo_dict["w"]
+    if "w0" in cosmo_dict:
+        conversions["w0"] = cosmo_dict["w0"]
+    if "wa" in cosmo_dict:
+        conversions["wa"] = cosmo_dict["wa"]
 
     # If h is present, set it right away, so that we can begin converting
     # fractional densities.
-    if "h" in kwargs:
-        conversions["h"] = kwargs["h"]
-    elif "H0" in kwargs:
-        conversions["h"] = kwargs["H0"] / 100
+    if "h" in cosmo_dict:
+        conversions["h"] = cosmo_dict["h"]
+    elif "H0" in cosmo_dict:
+        conversions["h"] = cosmo_dict["H0"] / 100
     
     # Nothing else requires such conversions, so add the remaining values
     # directly to the working dictionary.
-    for key, value in kwargs.items():
+    for key, value in cosmo_dict.items():
         if key not in fractional_keys:
             conversions[key] = value
         
-    if "z" not in kwargs:
+    if "z" not in cosmo_dict:
         warnings.warn("No redshift given. Using z=0...")
         conversions["z"] = 0
 
