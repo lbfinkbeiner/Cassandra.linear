@@ -51,17 +51,6 @@ def contains_ev_par(dictionary):
             
     return False
 
-def estimate_sigma12(dictionary):
-    """
-    @dictionary should already be formatted according to the output of
-        transcribe_cosmology.
-    """
-    
-    # First, emulate sigma12 according to default evolution parameters
-    return 23
-    
-    # Second, scale that sigma12 according to the growth factor and A_s
-
 ambiguous_sigma12_message = "sigma12 and at least one evolution parameter " + \
     "were simultaneously specified. If the desired sigma12 is already " + \
     "known, no evolution parameters should appear."
@@ -179,26 +168,28 @@ def cosmology_to_Pk(**kwargs):
     kwargs = convert_densities(kwargs)
     kwargs = fill_in_defaults(kwargs)
     
-    if "sigma12" not in kwargs:
-        kwargs = add_sigma12(kwargs)
+    cosmology = transcribe_cosmology(kwargs)
+    
+    if "sigma12" not in cosmology.pars:
+        add_sigma12(cosmology)
 
-    emu_vector = cosmology_to_emu_vec(kwargs)
+    emu_vector = cosmology_to_emu_vec(cosmology)
     
     # Can I use an API that I can't necessarily "see"? i.e. does it work to
     # access trainer fn.s if cassL-dev isn't installed?
     
-    if len(emu_vector) == 6:
-        return nu_trainer.p_emu.predict(emu_vector)
-    elif len(emu_vector) == 4:
-        return zm_trainer.p_emu.predict(emu_vector)
+    if len(emu_vector) == 6: # massive neutrinos
+        return nu_trainer.p_emu.predict(emu_vector),
+            nu_trainer.unc_emu.predict(emu_vector)
+    elif len(emu_vector) == 4: # massless neutrinos
+        return zm_trainer.p_emu.predict(emu_vector),
+            zm_trainer.unc_emu.predict(emu_vector)
 
-    if "sigma12" in kwargs:
-        # We don't need to bother with transcribe_cosmology
-        return 23
 
-def add_sigma12(**kwargs):
-    cosmology = transcribe_cosmology(kwargs)
-
+def add_sigma12(cosmology):
+    """
+    @cosmology should be a fully filled-in Brenda Cosmology object.
+    """
     base = np.array([
         cosmology.pars["omega_b"],
         cosmology.pars["omega_cdm"],
@@ -209,14 +200,12 @@ def add_sigma12(**kwargs):
 
     # First, emulate sigma12 as though the evolution parameters were all given
     # by the current best fit in the literature.
-    sigma12 = sigma12_trainer.p_emu.predict(base_normalized)
+    sigma12_m0 = sigma12_trainer.p_emu.predict(base_normalized)
     
-    # Now scale according to the evolution parameters
-    dictionary["sigma12"] = estimate_sigma12(dictionary)
+    cosmology.pars["sigma12"] = scale_sigma12(cosmology, sigma12_m0)
+    return cosmology
     
-    return 23
-    
-def scale_sigma12(cosmology, m0_sigma12):
+def scale_sigma12(cosmology, sigma12_m0):
     """
     Ideally, the user wouldn't use this function, it would automatically be
     called under the hood in the event that the user attempts to specify
@@ -229,7 +218,7 @@ def scale_sigma12(cosmology, m0_sigma12):
         This contains all of the cosmological parameters we'll need in order to
         compute the linear growth factor. 
     
-    @m0_sigma12: float
+    @sigma12_m0: float
         The sigma12 value returned by the sigma12 emulator. This is what the
         sigma12 value would be if we overwrote Aletheia model 0 (i.e. the
         Planck best fit parameters) with this cosmology's values for omega_b,
@@ -262,51 +251,22 @@ def cosmology_to_emu_vec(cosmology):
     
     This needs to handle normalization, too.
     """
-    # Regardless of whether we use the massless or massive emu,
-    # we need omega_b, omega_c, ns, and sigma12
-    
-    raise 1 / 0, "this needs to be normalized"
-    
     base = np.array([
-        dictionary["omega_b"],
-        dictionary["omega_cdm"],
+        cosmology.pars["omega_b"],
+        cosmology.pars["omega_cdm"],
         cosmology.pars["ns"],
-        dictionary["sigma12"]
+        cosmology.pars["sigma12"]
     ])
     
-    if "omnu" == 0:
-        return base
+    if cosmology["omega_nu"] == 0:
+        return zm_trainer.p_emu.convert_to_normalized_params(base)
     else:
         extension = np.array([
-            dictionary["A_s"],
-            dictionary["omnu"]
+             cosmology.pars["As"],
+            cosmology.pars["omnu"]
         ])
-        return np.append(base, extension)
-    
-
-def prior_file_to_array(prior_name="COMET_with_nu"):
-    """
-    !
-    """
-    param_ranges = None
-
-    prior_file = data_prefix + "priors/" + prior_name + ".txt"
-    
-    with open(prior_file, 'r') as file:
-        lines = file.readlines()
-        key = None
-        for line in lines:
-            if line[0] != "$":
-                bounds = line.split(",")
-                # Extra layer of square brackets so that np.append works
-                bounds = np.array([[float(bounds[0]), float(bounds[1])]])
-                
-                if param_ranges is None:
-                    param_ranges = bounds
-                else:
-                    param_ranges = np.append(param_ranges, bounds, axis=0)
-
-    return param_ranges
+        full_vector = np.append(base, extension)
+        return nu_trainer.p_emu.convert_to_normalized_params(full_vector)
 
 
 def transcribe_cosmology(**kwargs):
@@ -315,12 +275,12 @@ def transcribe_cosmology(**kwargs):
     objects follow a particular format for compatibility with the fn.s in
     this script (and in Brendalib) that return various power spectra power.
     
-    This fn. thoroughly error-checks the arguments to verify that they represent
-    a consistent and complete cosmology. Mostly, completeness is not a problem
-    for the user, as missing parameters are generally inferred from the default 
-    cosmology. However, for example, this fn will complain if the user attempts
-    to specify fractional density parameters without specifying the value of the 
-    Hubble parameter.
+    This fn. thoroughly error-checks the arguments to verify that they
+    represent a consistent and complete cosmology. Mostly, completeness is not
+    a problem for the user, as missing parameters are generally inferred from
+    the default cosmology. However, for example, this fn will complain if the
+    user attempts to specify fractional density parameters without specifying
+    the value of the Hubble parameter.
     
     After this verification, the fn converts given quantities to desired
     quantities. For example, the code in this script primarily uses physical 
