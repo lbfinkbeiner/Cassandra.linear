@@ -1,3 +1,9 @@
+emulator_interface takes a little while to import since it loads
+all three emulators into main memory...
+
+This is a memory-intensive application!
+Make sure that you have at least 2.6 GB of free memory available!
+
 # Readme
 
 # Next steps:

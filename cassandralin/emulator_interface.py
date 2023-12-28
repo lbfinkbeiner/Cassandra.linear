@@ -23,6 +23,22 @@ DEFAULT_COSMOLOGY = {
     'LGF': 0.7898639094999238
 }
 
+def within_prior(value, index):
+    return value >= PRIORS[index][0] and value <= PRIORS[index][1]
+
+data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
+
+# Evolution parameter keys. If ANY of these appears in a cosmology dictionary,
+# there had better not be a sigma12 value...
+EV_PAR_KEYS = []
+
+# Load the emulators that we need.
+# sigma12 emu
+sigma12_trainer = np.load(data_prefix + "emus/sigma12.cle", allow_pickle=True)
+# Massive-neutrino emu
+nu_trainer = np.load(data_prefix + "emus/Hnu2.cle", allow_pickle=True)
+# Massless-neutrino emu ("zm" for "zero mass")
+zm_trainer = np.load(data_prefix + "emus/Hz1.cle", allow_pickle=True)
 
 def prior_file_to_array(prior_name="COMET"):
     """
@@ -47,25 +63,8 @@ def prior_file_to_array(prior_name="COMET"):
                     param_ranges = np.append(param_ranges, bounds, axis=0)
 
     return param_ranges
-    
+
 PRIORS = prior_file_to_array("COMET")
-
-def within_prior(value, index):
-    return value >= PRIORS[index][0] and value <= PRIORS[index][1]
-
-data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
-
-# Evolution parameter keys. If ANY of these appears in a cosmology dictionary,
-# there had better not be a sigma12 value...
-EV_PAR_KEYS = []
-
-# Load the emulators that we need.
-# sigma12 emu
-sigma12_trainer = np.load(data_prefix + "emus/sigma12.cle")
-# Massive-neutrino emu
-nu_trainer = np.load(data_prefix + "emus/Hnu2.cle")
-# Massless-neutrino emu ("zm" for "zero mass")
-zm_trainer = np.load(data_prefix + "emus/Hz1.cle")
 
 def contains_ev_par(dictionary):
     """
@@ -185,7 +184,7 @@ def fill_in_defaults(**kwargs):
     # Ditto with neutrinos.
     if "omega_nu" not in kwargs:
         warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
-                      "massless neutrinos..."))
+                      "massless neutrinos...")
         conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
     else:
         if "A_s" not in kwargs:
@@ -227,10 +226,10 @@ def cosmology_to_Pk(**kwargs):
     # access trainer fn.s if cassL-dev isn't installed?
     
     if len(emu_vector) == 6: # massive neutrinos
-        return nu_trainer.p_emu.predict(emu_vector),
+        return nu_trainer.p_emu.predict(emu_vector), \
             nu_trainer.unc_emu.predict(emu_vector)
     elif len(emu_vector) == 4: # massless neutrinos
-        return zm_trainer.p_emu.predict(emu_vector),
+        return zm_trainer.p_emu.predict(emu_vector), \
             zm_trainer.unc_emu.predict(emu_vector)
 
 
