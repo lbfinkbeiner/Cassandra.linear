@@ -1,12 +1,9 @@
 from setuptools import setup
 
 setup(
-    name='cassL',
-    version='0.3.9',
-    packages=['cassL'],
-    package_data={'': [
-        'cosmologies.dat'
-    ]},
+    name='cassandralin',
+    version='0.0.1',
+    packages=['cassandralin']
 )
 
 # numpy should be <= 1.23.5, otherwise GPy cannot be imported...

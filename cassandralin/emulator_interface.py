@@ -84,13 +84,13 @@ def within_prior(value, index):
     """
     return value >= PRIORS[index][0] and value <= PRIORS[index][1]
 
-def contains_ev_par(dictionary):
+def contains_ev_par(cosmo_dict):
     """
-    Check if the cosmology specified by @dictionary contains a definition of
+    Check if the cosmology specified by @cosmo_dict contains a definition of
     an evolution parameter.
     """
     for ev_par_key in EV_PAR_KEYS:
-        if ev_par_key in dictionary:
+        if ev_par_key in cosmo_dict:
             return true
             
     return False
@@ -112,8 +112,19 @@ out_of_bounds_msg = "The given value for {} falls outside of the range " + \
 
 def error_check_cosmology(cosmo_dict):
     """
-    Provides clear error messages for some, but not all, cases of ambiguity or
+    Provide clear error messages for some, but not all, cases of ambiguity or
     inconsistency in the input parameters.
+    1. Both sigma12 and at least one evolution parameter specified.
+        (This is a case of redundancy which we, to be safe with consistency,
+            do not allow).
+    2. Both omega_i and Omega_i are given for at least one value of i.
+        (Again, this is redundancy that we do not allow.)
+    3. All three of the following are defined: h, density in DE, and density
+        in curvature.
+        (Again, redundancy. Technically, baryons and CDM also factor into h,
+            but since those parameters are shape parameters, we set them to
+            default values very early on in the strange case that they are
+            missing.)
     """
     # We may want to allow the user to turn off error checking if a lot of
     # predictions need to be tested all at once...
@@ -174,45 +185,45 @@ def convert_densities(cosmo_dict):
 missing_h_message = "A fractional density parameter was specified, but no " + \
     "value of 'h' was provided."    
    
-def fill_in_defaults(cosmology):
+def fill_in_defaults(cosmo_dict):
     """
     Take an input cosmology and fill in missing values with defaults until it
     meets the requirements for emu prediction. 
     """
-    if "omega_b" not in cosmology.pars:
+    if "omega_b" not in cosmo_dict:
         warnings.warn(str.format(missing_shape_message, "omega_b"))
-        cosmology.pars["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
-    elif not within_prior(cosmology.pars["omega_b"], 0):
+        cosmo_dict["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
+    elif not within_prior(cosmo_dict["omega_b"], 0):
         raise ValueError(str.format(out_of_bounds_msg, "omega_b"))
 
     # Ditto with cold dark matter.
-    if "omega_cdm" not in cosmology.pars:
+    if "omega_cdm" not in cosmo_dict:
         warnings.warn(str.format(missing_shape_message, "omega_cdm"))
-        cosmology.pars["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
-    elif not within_prior(cosmology.pars["omega_cdm"], 1):
+        cosmo_dict["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
+    elif not within_prior(cosmo_dict["omega_cdm"], 1):
         raise ValueError(str.format(out_of_bounds_msg, "omega_cdm"))
 
     # Ditto with the spectral index.
-    if "ns" not in cosmology.pars:
+    if "ns" not in cosmo_dict:
         warnings.warn(str.format(missing_shape_message, "ns"))
-        cosmology.pars["ns"] = DEFAULT_COSMOLOGY["ns"]
-    elif not within_prior(cosmology.pars["ns"], 2):
+        cosmo_dict["ns"] = DEFAULT_COSMOLOGY["ns"]
+    elif not within_prior(cosmo_dict["ns"], 2):
         raise ValueError(str.format(out_of_bounds_msg, "ns"))
     
     # Ditto with neutrinos.
-    if "omega_nu" not in cosmology.pars:
+    if "omega_nu" not in cosmo_dict:
         warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
                       "massless neutrinos...")
-        cosmology.pars["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
+        cosmo_dict["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
     else:
-        if "A_s" not in cosmology.pars:
+        if "As" not in cosmo_dict:
             warnings.warn("The value of 'As' was not provided, even " + \
                           "though massive neutrinos were requested. " + \
                           "Setting to the Planck best fit value...")
-        if not within_prior(cosmology.pars["omega_nu"], 5):
+        if not within_prior(cosmo_dict["omega_nu"], 5):
             raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
             
-    if "A|s" in cosmology.pars and not within_prior(cosmology.pars["As"], 4):
+    if "As" in cosmo_dict and not within_prior(cosmo_dict["As"], 4):
         raise ValueError(str.format(out_of_bounds_msg, "As"))
     
 
@@ -228,7 +239,7 @@ def cosmology_to_Pk(**kwargs):
     error_check_cosmology(kwargs)
     
     cosmo_dict = convert_densities(kwargs)
-    cosmo_dict = fill_in_defaults(cosm_dict)
+    cosmo_dict = fill_in_defaults(cosmo_dict)
     
     cosmology = transcribe_cosmology(cosmo_dict)
     
