@@ -52,6 +52,11 @@ def prior_file_to_array(prior_name="COMET"):
     
     In other words, users only interested in this interface will have no
     reason to call this function outside of its automatic invocation.
+
+    :param prior_name: the name of the prior file to be read, i.e. the file
+        handle minus the file extension, defaults to "COMET"
+    :type prior_name: str, optional
+        
     """
     param_ranges = None
 
