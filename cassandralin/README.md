@@ -15,6 +15,8 @@ unfortunately, it doesn't look like this is going to install with
 # write paper
 # no wiggle, de-wiggle, and dimensionless power spectrum
 
+# Expand documentation of the development code!!
+
 # Should we re-do the Hnu2 unc emu with a set of 5000 samples?
 # I used 7000 for the test run and now the emu object is huge...
 # In fact, maybe all of the emu's would benefit from smaller sizes,
@@ -41,3 +43,5 @@ unfortunately, it doesn't look like this is going to install with
 # @ 13:30 I just went back and checked CAMB again. This time, it's giving me a
 # segfault instead of a complaint that the redshift is negative. A segfault is
 # significantly more difficult to address...
+
+# sigma12 non-linear sampling is probably a waste of time, but # we should come back to it in the future.
