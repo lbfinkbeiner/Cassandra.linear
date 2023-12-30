@@ -134,7 +134,7 @@ out_of_bounds_msg = "The given value for {} falls outside of the range " + \
 def error_check_cosmology(cosmo_dict):
     """
     Provide clear error messages for some, but not all, cases of ambiguity or
-    inconsistency in the input parameters.
+    inconsistency in the input parameters:
     1. Both sigma12 and at least one evolution parameter specified.
         (This is a case of redundancy which we, to be safe with consistency,
             do not allow).
@@ -146,7 +146,9 @@ def error_check_cosmology(cosmo_dict):
             but since those parameters are shape parameters, we set them to
             default values very early on in the strange case that they are
             missing.)
-            
+    These error messages are given via raises, so this fn is void. The
+    input @cosmo_dict is considered to be valid if this fn returns None.
+
     Mostly, completeness is not a problem for which we need error checking,
     as missing parameters are generally inferred from the default (Planck best
     fit) cosmology. As an exception, we do not infer h when the user specifies
@@ -156,6 +158,8 @@ def error_check_cosmology(cosmo_dict):
         where the parameters are referred to using the same keys as Brendalib
         does in its Cosmology objects.
     :type cosmo_dict: dict
+    :raises: ValueError
+        In any of the three cases specified at the beginning of this docstring.
     """
     # We may want to allow the user to turn off error checking if a lot of
     # predictions need to be tested all at once.... However, if we add such a
@@ -202,6 +206,14 @@ def convert_fractional_densities(cosmo_dict):
         where the parameters are referred to using the same keys as Brendalib
         does in its Cosmology objects.
     :type cosmo_dict: dict
+    :raises: ValueError
+        If there exists a fractional density without an accompanying value of
+        h.
+    :return: copy of @cosmo_dict with additional fields for the computed
+        physical densities. If @cosmo_dict already contains all physical
+        densities, or if no fractional densities were specified, this returned
+        copy will be indistinguishable from @cosmo_dict.
+    :rtype: dictionary
     """
     conversions = cp.deepcopy(cosmo_dict)
     
@@ -229,7 +241,31 @@ missing_h_message = "A fractional density parameter was specified, but no " + \
 def fill_in_defaults(cosmo_dict):
     """
     Take an input cosmology and fill in missing values with defaults until it
-    meets the requirements for emu prediction. 
+    meets the requirements for emu prediction. The parameters considered
+    required (and therefore subject to filling in with default values) depends
+    on the neutrino treatment.
+
+    If this cosmology uses massless neutrinos, the following parameters are
+    required: omega_b, omega_cdm, and ns (technically, sigma12 is also
+    required, but instead of filling that in with a default value, we emulate
+    it and analytically rescale the prediction with the fn add_sigma12). If
+    this cosmology uses massive neutrinos, two parameters are required in
+    addition: As and omega_nu.
+
+    If @cosmo_dict lacks an entry for omega_nu, neutrinos are assumed to be
+    massless and omega_nu is set to zero. 
+    
+    :param cosmo_dict: dictionary giving values of cosmological parameters,
+        where the parameters are referred to using the same keys as Brendalib
+        does in its Cosmology objects.
+    :type cosmo_dict: dict
+    :raises: ValueError
+        If any of the required parameters falls outside the range defined by
+        the priors over which the emulators were trained.
+    :return: copy of @cosmo_dict with additional fields for the default
+        parameters. If @cosmo_dict already contains all required parameters,
+        this returned copy will be indistinguishable from @cosmo_dict.
+    :rtype: dictionary
     """
     conversions = cp.deepcopy(cosmo_dict)
     
