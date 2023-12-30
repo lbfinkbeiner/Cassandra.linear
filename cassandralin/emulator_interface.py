@@ -50,10 +50,10 @@ def prior_file_to_array(prior_name="COMET"):
     In other words, users only interested in this interface will have no
     reason to call this function outside of its automatic invocation.
 
-    :param prior_name: the name of the prior file to be read, i.e. the file
+    :param prior_name: The name of the prior file to be read, i.e. the file
         handle minus the file extension, defaults to "COMET".
     :type prior_name: str, optional
-    :return: priors associated with the given @prior_name. The first index
+    :return: Priors associated with the given @prior_name. The first index
         determines the cosmological parameter and the second index is either 0
         for the lower bound or 1 for the upper bound.
     :rtype: numpy.ndarray of float64
@@ -84,11 +84,14 @@ def within_prior(value, index):
     """
     Check if a given value falls within the associated priors.
     
-    :param value: the parameter value to be tested
+    :param value: The parameter value to be tested
     :type value: float
-    :param index: the index of PRIORS (the array of priors over which the
+    :param index: The index of PRIORS (the array of priors over which the
         emulator was trained) which corresponds to that cosmological parameter.
     :type index: int
+    :return: Wether @value is within the associated prior range for the
+        parameter specified by @index.
+    :rtype: bool
 
     For example, if @value were a configuration of the spectral index. We would
         call within_prior(value, 2).
@@ -99,10 +102,17 @@ def contains_ev_par(cosmo_dict):
     """
     Check if the cosmology specified by @cosmo_dict contains a definition of
     an evolution parameter.
+
+    :param cosmo_dict: Dictionary giving values of cosmological parameters,
+        where the parameters are referred to using the same keys as Brendalib
+        does in its Cosmology objects.
+    :type cosmo_dict: dict
+    :return: Whether @cosmo_dict contains a key for an evolution parameter.
+    :rtype: bool
     """
     for ev_par_key in EV_PAR_KEYS:
         if ev_par_key in cosmo_dict:
-            return true
+            return True
             
     return False
 
@@ -141,6 +151,11 @@ def error_check_cosmology(cosmo_dict):
     as missing parameters are generally inferred from the default (Planck best
     fit) cosmology. As an exception, we do not infer h when the user specifies
     fractional density parameters (see convert_fractional_densities).
+
+    :param cosmo_dict: dictionary giving values of cosmological parameters,
+        where the parameters are referred to using the same keys as Brendalib
+        does in its Cosmology objects.
+    :type cosmo_dict: dict
     """
     # We may want to allow the user to turn off error checking if a lot of
     # predictions need to be tested all at once.... However, if we add such a
@@ -182,6 +197,11 @@ def convert_fractional_densities(cosmo_dict):
     """
     Convert any fractional densities specified in cosmo_dict, and raise an
     error if there exists a fractional density without an accompanying h.
+    
+    :param cosmo_dict: dictionary giving values of cosmological parameters,
+        where the parameters are referred to using the same keys as Brendalib
+        does in its Cosmology objects.
+    :type cosmo_dict: dict
     """
     conversions = cp.deepcopy(cosmo_dict)
     
