@@ -7,6 +7,7 @@ import warnings
 #!! Matteo's code, which still needs to be gracefully incorporated
 import cosmo_tools as brenda
 
+# Aletehia model 0 parameters, given by the best fit to Planck data.
 DEFAULT_COSMOLOGY = {
     'omega_b': 0.022445,
     'omega_cdm': 0.120567,
@@ -142,7 +143,9 @@ def error_check_cosmology(cosmo_dict):
     fractional density parameters (see convert_fractional_densities).
     """
     # We may want to allow the user to turn off error checking if a lot of
-    # predictions need to be tested all at once...
+    # predictions need to be tested all at once.... However, if we add such a
+    # feature, we'll need to bring more of the error checking into this fn,
+    # because currently some checks are scattered in other functions...
     
     # Make sure that the user EITHER specifies sigma12 or ev. param.s
     if "sigma12" in cosmo_dict and contains_ev_par(cosmo_dict):
@@ -256,6 +259,11 @@ def cosmology_to_Pk(**kwargs):
     prediction. I still don't really know why we re-invented the wheel, when
     the GPR object itself gives an uncertainty. But let's see...
     """
+    # If you need to speed up the predictions, it would be worthwhile to
+    # consider the theoretically optimal case: In this case, the user would
+    # have already error-checked and neatly packaged their data. So, to time
+    # the theoretically optimal case is to time JUST the call
+    # nu_trainer.delta_emu.predict(emu_vector)[0]
 
     error_check_cosmology(kwargs)
     
