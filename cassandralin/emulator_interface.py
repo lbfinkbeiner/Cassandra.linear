@@ -1,17 +1,11 @@
 import numpy as np
-from cassL import lhc
-from cassL import generate_emu_data as ged
-from cassL import train_emu as te
-from cassL import camb_interface as ci
 import os
 
 import copy as cp
+import warnings
 
 #!! Matteo's code, which still needs to be gracefully incorporated
 import cosmo_tools as brenda
-
-import scipy
-import warnings
 
 DEFAULT_COSMOLOGY = {
     'omega_b': 0.022445,
