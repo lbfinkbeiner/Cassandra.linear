@@ -29,10 +29,12 @@ DEFAULT_COSMOLOGY = {
 data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
 
 # Evolution parameter keys. If ANY of these appears in a cosmology dictionary,
-# there had better not be a sigma12 value...
+# the dictionary had better not include a sigma12 value...
 EV_PAR_KEYS = []
 
-# Load the emulators that we need.
+# Load the emulators that we need. The extension "trainer" refers to the
+# data structure which encapsulates the emu. See "train_emu.py" from the
+# developer tools for details.
 # sigma12 emu
 sigma12_trainer = np.load(data_prefix + "emus/sigma12.cle", allow_pickle=True)
 # Massive-neutrino emu
@@ -54,9 +56,12 @@ def prior_file_to_array(prior_name="COMET"):
     reason to call this function outside of its automatic invocation.
 
     :param prior_name: the name of the prior file to be read, i.e. the file
-        handle minus the file extension, defaults to "COMET"
+        handle minus the file extension, defaults to "COMET".
     :type prior_name: str, optional
-        
+    :return: priors associated with the given @prior_name. The first index
+        determines the cosmological parameter and the second index is either 0
+        for the lower bound or 1 for the upper bound.
+    :rtype: numpy.ndarray of float64
     """
     param_ranges = None
 
@@ -84,9 +89,13 @@ def within_prior(value, index):
     """
     Check if a given value falls within the associated priors.
     
-    @value the parameter value to be tested
-    @index the index of PRIORS which corresponds to that parameter. For 
-        example, if @value were a configuration of the spectral index. We would
+    :param value: the parameter value to be tested
+    :type value: float
+    :param index: the index of PRIORS (the array of priors over which the
+        emulator was trained) which corresponds to that cosmological parameter.
+    :type index: int
+
+    For example, if @value were a configuration of the spectral index. We would
         call within_prior(value, 2).
     """
     return value >= PRIORS[index][0] and value <= PRIORS[index][1]
