@@ -269,6 +269,13 @@ def fill_in_defaults(cosmo_dict):
         parameters. If @cosmo_dict already contains all required parameters,
         this returned copy will be indistinguishable from @cosmo_dict.
     :rtype: dictionary
+    warning:: This fn will fill-in with defaults the values of essential shape
+        parameters like omega_b and omega_cdm which are directly used by the
+        emulator, unlike the less consequential evolution parameters which
+        only affect the predicted spectra by an analytical shift in amplitude.
+        This fn will warn the user if it is filling in these parameters with
+        default values, because that almost certainly indicates that the user
+        has forgotten to provide these values.
     """
     conversions = cp.deepcopy(cosmo_dict)
     
