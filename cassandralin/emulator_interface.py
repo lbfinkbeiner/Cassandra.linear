@@ -7,6 +7,9 @@ import warnings
 #!! Matteo's code, which still needs to be gracefully incorporated
 import cosmo_tools as brenda
 
+# This array should contain NumPy floats, so there's nothing to unpickle.
+K_AXIS = np.load(data_prefix + "300k.npy")
+
 # Aletehia model 0 parameters, given by the best fit to Planck data.
 DEFAULT_COSMOLOGY = {
     'omega_b': 0.022445,
@@ -309,11 +312,64 @@ def fill_in_defaults(cosmo_dict):
 
 def cosmology_to_Pk(**kwargs):
     """
-    This fn wraps the trainer object...
+    Predict the power spectrum based on cosmological parameters provided by the
+    user. The returned power spectrum is evaluated at 300 values of the inverse
+    scale k, given by K_AXIS.
     
-    It automatically returns a prediction and the estimated uncertainty on that
-    prediction. I still don't really know why we re-invented the wheel, when
-    the GPR object itself gives an uncertainty. But let's see...
+    Also return the estimated uncertainty on that prediction. This
+    uncertainty is not the Gaussian Process Regression uncertainty, but an
+    empirical uncertainty based on the emulator's performance on a set of
+    validation data.
+    
+    Any cosmological parameters not specified by the user will be assigned
+    default values according to Aletheia model 0, a cosmology based on the
+    best fit to the Planck data but without massive neutrinos.
+    
+    :param omB: Physical density in baryons
+    :type omB: float
+    :param OmB: Fractional density in baryons
+    :type OmB: float
+    :param omC: Physical density in cold dark matter
+    :type omC: float
+    :param OmC: Fractional density in cold dark matter
+    :type OmC: float
+    :param omDE: Physical density in dark energy
+    :type omDE: float
+    :param omDE: Fractional density in dark energy
+    :type OmDE: float
+        
+    omnu: float
+        Physical density in neutrinos
+    Omnu: float
+        Fractional density in neutrinos
+    
+    omK: float
+        Physical density in curvature
+    OmK: float
+        Fractional density in curvature
+    
+    h: float
+        dimensionless Hubble parameter
+    H0: float
+        Hubble parameter in km / s / Mpc
+        
+    ns: float
+        Spectral index of the primordial power spectrum
+    
+    As: float
+        Scalar mode amplitude of the primordial power spectrum
+        
+    !!!
+    z: float
+        redshift. THIS PROBABLY DOESN'T BELONG IN THE COSMOLOGY DICTIONARY.
+        Maybe we should leave redshift as a separate input in the various fn.s
+        of this script?
+        
+    todo:: Consider putting redshift somewhere else. It's conceptually unclean
+        to make a single redshift value a part of the definition of the
+        cosmology.
+        Consider also including the GPy uncertainty. Would that be helpful?
+        Would that be more useful than 
     """
     # If you need to speed up the predictions, it would be worthwhile to
     # consider the theoretically optimal case: In this case, the user would
@@ -459,49 +515,6 @@ def transcribe_cosmology(cosmo_dict):
     After this verification, the fn converts given quantities to desired
     quantities. For example, the code in this script primarily uses physical 
     densities, so fractional densities will be converted.
-    
-    Possible parameters:
-    omB: float
-        Physical density in baryons
-    OmB: float
-        Fractional density in baryons
-    
-    omC: float
-        Physical density in cold dark matter
-    OmC: float
-        Fractional density in cold dark matter
-    
-    omDE: float
-        Physical density in dark energy
-    OmDE: float
-        Fractional density in dark energy
-        
-    omnu: float
-        Physical density in neutrinos
-    Omnu: float
-        Fractional density in neutrinos
-    
-    omK: float
-        Physical density in curvature
-    OmK: float
-        Fractional density in curvature
-    
-    h: float
-        dimensionless Hubble parameter
-    H0: float
-        Hubble parameter in km / s / Mpc
-        
-    ns: float
-        Spectral index of the primordial power spectrum
-    
-    As: float
-        Scalar mode amplitude of the primordial power spectrum
-        
-    !!!
-    z: float
-        redshift. THIS PROBABLY DOESN'T BELONG IN THE COSMOLOGY DICTIONARY.
-        Maybe we should leave redshift as a separate input in the various fn.s
-        of this script?
     """
     # Instead of directly building a brenda Cosmology, we use this temporary
     # dictionary; it helps to keep track of values that may need to be

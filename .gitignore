@@ -4,23 +4,12 @@
 cassL.egg-info
 .virtual_documents
 
-# Ignore preliminary media and heavy analyses
-communications
-machines
-cake-workshop-2021
-comet-emu
-ringberg
-CAMB_notebooks/plots
-thesis_paper/unstaged
-cassL/plots
-
 # Other unnecessary data files
 CAMB_demo/planck_2018.ini
 *.pdf
 *.pyc
 *.ini
 # emulator data sets, i.e. LHC X and Y sets
-*.npy
 *.csv
 *.tar
 *.dat

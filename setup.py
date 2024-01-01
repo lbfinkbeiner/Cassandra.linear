@@ -4,6 +4,11 @@ setup(
     name='cassandralin',
     version='0.0.1',
     packages=['cassandralin']
+    package_data={'': [
+        'priors/*',
+        'emus/*',
+        '300k.npy'
+    ]},
 )
 
 # These tools need to specify all of the necessary packages.
