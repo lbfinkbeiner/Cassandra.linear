@@ -337,29 +337,23 @@ def cosmology_to_Pk(**kwargs):
     :type omDE: float
     :param omDE: Fractional density in dark energy
     :type OmDE: float
-        
-    omnu: float
-        Physical density in neutrinos
-    Omnu: float
-        Fractional density in neutrinos
+    :param omnu: Physical density in neutrinos    
+    :type omnu: float
+    :param Omnu: Fractional density in neutrinos
+    :type Omnu: float
+    :param omK: Physical density in curvature
+    :type omK: float
+    :param OmK: Fractional density in curvature
+    :type OmK: float
+    :param h: Dimensionless Hubble parameter
+    :type h: float
+    :param H0: Hubble parameter in km / s / Mpc
+    :type H0: float
+    :param ns: Spectral index of the primordial power spectrum
+    :type ns: float
+    :param As: Scalar mode amplitude of the primordial power spectrum
+    :type As: float
     
-    omK: float
-        Physical density in curvature
-    OmK: float
-        Fractional density in curvature
-    
-    h: float
-        dimensionless Hubble parameter
-    H0: float
-        Hubble parameter in km / s / Mpc
-        
-    ns: float
-        Spectral index of the primordial power spectrum
-    
-    As: float
-        Scalar mode amplitude of the primordial power spectrum
-        
-    !!!
     z: float
         redshift. THIS PROBABLY DOESN'T BELONG IN THE COSMOLOGY DICTIONARY.
         Maybe we should leave redshift as a separate input in the various fn.s
