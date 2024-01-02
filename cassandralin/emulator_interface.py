@@ -332,26 +332,32 @@ def cosmology_to_Pk(**kwargs):
     default values according to Aletheia model 0, a cosmology based on the
     best fit to the Planck data but without massive neutrinos.
     
-    :param omB: Physical density in baryons
-    :type omB: float
-    :param OmB: Fractional density in baryons
-    :type OmB: float
-    :param omC: Physical density in cold dark matter
-    :type omC: float
-    :param OmC: Fractional density in cold dark matter
-    :type OmC: float
-    :param omDE: Physical density in dark energy
-    :type omDE: float
-    :param omDE: Fractional density in dark energy
-    :type OmDE: float
-    :param omnu: Physical density in neutrinos    
-    :type omnu: float
-    :param Omnu: Fractional density in neutrinos
-    :type Omnu: float
-    :param omK: Physical density in curvature
-    :type omK: float
-    :param OmK: Fractional density in curvature
-    :type OmK: float
+    :param omega_b: Physical density in baryons, defaults to
+        DEFAULT_COSMOLOGY['omega_b']
+    :type omega_b: float
+    :param Omega_b: Fractional density in baryons, defaults to
+        DEFAULT_COSMOLOGY[''] / DEFAULT_COSMOLOGY['h'] ** 2
+    :type Omega_b: float
+    :param omega_cdm: Physical density in cold dark matter, defaults to
+        DEFAULT_COSMOLOGY['omega_cdm']
+    :type omega_cdm: float
+    :param Omega_cdm: Fractional density in cold dark matter
+    :type Omega_cdm: float
+    :param omega_DE: Physical density in dark energy, defaults to
+        DEFAULT_COSMOLOGY['omega_DE']
+    :type omega_DE: float
+    :param Omega_DE: Fractional density in dark energy
+    :type Omega_DE: float
+    :param omega_nu: Physical density in neutrinos, defaults to
+        DEFAULT_COSMOLOGY['omega_nu']
+    :type omega_nu: float
+    :param Omega_nu: Fractional density in neutrinos
+    :type Omega_nu: float
+    :param omega_K: Physical density in curvature, defaults to
+        DEFAULT_COSMOLOGY['omega_K']
+    :type omega_K: float
+    :param Omega_K: Fractional density in curvature
+    :type Omega_K: float
     :param h: Dimensionless Hubble parameter
     :type h: float
     :param H0: Hubble parameter in km / s / Mpc
@@ -360,17 +366,14 @@ def cosmology_to_Pk(**kwargs):
     :type ns: float
     :param As: Scalar mode amplitude of the primordial power spectrum
     :type As: float
-    
-    z: float
-        redshift. THIS PROBABLY DOESN'T BELONG IN THE COSMOLOGY DICTIONARY.
-        Maybe we should leave redshift as a separate input in the various fn.s
-        of this script?
+    :param z: Cosmological redshift.
+    :type z: float
         
     todo:: Consider putting redshift somewhere else. It's conceptually unclean
         to make a single redshift value a part of the definition of the
         cosmology.
-        Consider also including the GPy uncertainty. Would that be helpful?
-        Would that be more useful than 
+        Consider also including the GPy uncertainty in the output. Would that
+        be helpful? Would that be more useful than the emulated uncertainty?
     """
     # If you need to speed up the predictions, it would be worthwhile to
     # consider the theoretically optimal case: In this case, the user would
