@@ -16,10 +16,11 @@ DEFAULT_COSMOLOGY = {
     'omega_cdm': 0.120567,
     'ns': 0.96,
     'As': 2.127238e-9,
-    'omega_K': 0,
+    'omega_K': 0.,
     'omega_DE': 0.305888,
-    'omega_nu': 0,
+    'omega_nu': 0.,
     'h': 0.67,
+    'z': 0.,
     'sigma12': 0.82476394,
     'LGF': 0.7898639094999238
 }
@@ -245,7 +246,7 @@ def fill_in_defaults(cosmo_dict):
     """
     Take an input cosmology and fill in missing values with defaults until it
     meets the requirements for emu prediction. The parameters considered
-    required (and therefore subject to filling in with default values) depends
+    required (and therefore subject to filling in with default values) depend
     on the neutrino treatment.
 
     If this cosmology uses massless neutrinos, the following parameters are
@@ -255,7 +256,9 @@ def fill_in_defaults(cosmo_dict):
     this cosmology uses massive neutrinos, two parameters are required in
     addition: As and omega_nu.
 
-    If @cosmo_dict lacks an entry for omega_nu, neutrinos are assumed to be
+    The default values for all of these required parameters are recorded in the
+    DEFAULT_COSMOLOGY dictionary at the top of this script. For example, if
+    @cosmo_dict lacks an entry for omega_nu, neutrinos are assumed to be
     massless and omega_nu is set to zero. 
     
     :param cosmo_dict: dictionary giving values of cosmological parameters,
@@ -336,37 +339,45 @@ def cosmology_to_Pk(**kwargs):
         DEFAULT_COSMOLOGY['omega_b']
     :type omega_b: float
     :param Omega_b: Fractional density in baryons, defaults to
-        DEFAULT_COSMOLOGY[''] / DEFAULT_COSMOLOGY['h'] ** 2
+        DEFAULT_COSMOLOGY['omega_b'] / DEFAULT_COSMOLOGY['h'] ** 2
     :type Omega_b: float
     :param omega_cdm: Physical density in cold dark matter, defaults to
         DEFAULT_COSMOLOGY['omega_cdm']
     :type omega_cdm: float
-    :param Omega_cdm: Fractional density in cold dark matter
+    :param Omega_cdm: Fractional density in cold dark matter, defaults to
+        DEFAULT_COSMOLOGY['omega_cdm'] / DEFAULT_COSMOLOGY['h'] ** 2
     :type Omega_cdm: float
     :param omega_DE: Physical density in dark energy, defaults to
         DEFAULT_COSMOLOGY['omega_DE']
     :type omega_DE: float
-    :param Omega_DE: Fractional density in dark energy
+    :param Omega_DE: Fractional density in dark energy, defaults to
+        DEFAULT_COSMOLOGY['omega_DE'] / DEFAULT_COSMOLOGY['h'] ** 2
     :type Omega_DE: float
     :param omega_nu: Physical density in neutrinos, defaults to
         DEFAULT_COSMOLOGY['omega_nu']
     :type omega_nu: float
-    :param Omega_nu: Fractional density in neutrinos
+    :param Omega_nu: Fractional density in neutrinos, defaults to
+        DEFAULT_COSMOLOGY['omega_nu'] / DEFAULT_COSMOLOGY['h'] ** 2
     :type Omega_nu: float
     :param omega_K: Physical density in curvature, defaults to
         DEFAULT_COSMOLOGY['omega_K']
     :type omega_K: float
-    :param Omega_K: Fractional density in curvature
+    :param Omega_K: Fractional density in curvature, defaults to
+        DEFAULT_COSMOLOGY['omega_K'] / DEFAULT_COSMOLOGY['h'] ** 2
     :type Omega_K: float
-    :param h: Dimensionless Hubble parameter
+    :param h: Dimensionless Hubble parameter, defaults to
+        DEFAULT_COSMOLOGY['h']
     :type h: float
-    :param H0: Hubble parameter in km / s / Mpc
+    :param H0: Hubble parameter in km / s / Mpc, defaults to
+        DEFAULT_COSMOLOGY['h'] * 100
     :type H0: float
-    :param ns: Spectral index of the primordial power spectrum
+    :param ns: Spectral index of the primordial power spectrum, defaults to
+        DEFAULT_COSMOLOGY['ns']
     :type ns: float
-    :param As: Scalar mode amplitude of the primordial power spectrum
+    :param As: Scalar mode amplitude of the primordial power spectrum, defaults
+        to DEFAULT_COSMOLOGY['As']
     :type As: float
-    :param z: Cosmological redshift.
+    :param z: Cosmological redshift, defaults to DEFAULT_COSMOLOGY['z']
     :type z: float
         
     todo:: Consider putting redshift somewhere else. It's conceptually unclean
@@ -546,8 +557,8 @@ def transcribe_cosmology(cosmo_dict):
             conversions[key] = value
         
     if "z" not in cosmo_dict:
-        warnings.warn("No redshift given. Using z=0...")
-        conversions["z"] = 0
+        warnings.warn("No redshift given. Using " + str(DEFAULT_COSMOLOGY['z'])
+        conversions["z"] = DEFAULT_COSMOLOGY['z']
 
     conversions["omega_m"] = conversions["omega_b"] + \
         conversions["omega_cdm"] + conversions["omega_nu"]
@@ -614,7 +625,7 @@ def transcribe_cosmology(cosmo_dict):
         if key not in conversions:
             conversions[key] = cosmology.pars[key]
     
-    # The omegaK field will be ignored, but remembered through h
+    # The omega_K field will be ignored, but remembered through h
     # z will be ignored by brenda, but used by this code.
     cosmology.pars = conversions
         
