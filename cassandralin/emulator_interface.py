@@ -442,7 +442,14 @@ def cosmology_to_Pk(**kwargs):
     :type As: float
     :param z: Cosmological redshift, defaults to DEFAULT_COSMOLOGY['z']
     :type z: float
-        
+    :raises: ValueError
+        This error is raised if the user explicitly specifies a value of
+        sigma12 that falls outside of the prior range.
+    :return: An array with the same length as K_AXIS, containing the
+        values of P(k) emulated by Cassandra-Linear for each value of k in
+        K_AXIS.
+    :rtype: numpy.ndarray of float64
+    
     todo:: Consider putting redshift somewhere else. It's conceptually unclean
         to make a single redshift value a part of the definition of the
         cosmology.
