@@ -1,6 +1,6 @@
 import numpy as np
-import os
 
+import os
 import copy as cp
 import warnings
 
@@ -355,18 +355,16 @@ def fill_in_defaults(cosmo_dict):
                       "a value of " + str(DEFAULT_COSMOLOGY["omega_nu"]) + \
                       "...")
         conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
-    else:
-        if "As" not in conversions:
-            warnings.warn("The value of 'As' was not provided, even " + \
-                          "though massive neutrinos were requested. " + \
-                          "Setting to the Planck best fit value (" + \
-                          str(DEFAULT_COSMOLOGY["As"]) + ")...")
-            conversions["As"] = DEFAULT_COSMOLOGY["As"]
-            
-        if not within_prior(conversions["omega_nu"], 5):
-            raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
-            
-    if "As" in conversions and not within_prior(conversions["As"], 4):
+    elif not within_prior(conversions["omega_nu"], 5):
+        raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
+
+    if "As" not in conversions and neutrinos_massive(conversions):
+        warnings.warn("The value of 'As' was not provided, even " + \
+                      "though massive neutrinos were requested. " + \
+                      "Setting to the Planck best fit value (" + \
+                      str(DEFAULT_COSMOLOGY["As"]) + ")...")
+        conversions["As"] = DEFAULT_COSMOLOGY["As"]
+    elif "As" in conversions and not within_prior(conversions["As"], 4):
         raise ValueError(str.format(out_of_bounds_msg, "As"))
 
     return conversions
@@ -666,9 +664,7 @@ def transcribe_cosmology(cosmo_dict):
         
     # package it up for brenda
     if "As" not in conversions:
-        warnings.warn("No value of 'As' found. Brenda will apply a " + \
-            "default value, but this is probably not what you want. Did " + \
-            "you remember to run fill_in_defaults first?")
+        conversions["As"] = DEFAULT_COSMOLOGY["As"]
 
     conversions["Omega_m"] = conversions["omega_m"] / conversions["h"] ** 2
     conversions["de_model"] = "w0wa"
