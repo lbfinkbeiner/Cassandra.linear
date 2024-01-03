@@ -26,6 +26,11 @@ NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu2.cle", allow_pickle=True)
 # Zero-mass neutrino emu
 ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz1.cle", allow_pickle=True)
 
+FRACTIONAL_KEYS = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
+                   "Omega_nu"]
+PHYSICAL_KEYS = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
+                 "omega_nu"]
+
 # Aletehia model 0 parameters, given by the best fit to the Planck data.
 DEFAULT_COSMO_DICT = {
     'omega_b': 0.022445,
@@ -90,7 +95,7 @@ def transcribe_cosmology(cosmo_dict):
     # Nothing else requires such conversions, so add the remaining values
     # directly to the working dictionary.
     for key, value in cosmo_dict.items():
-        if key not in fractional_keys:
+        if key not in FRACTIONAL_KEYS:
             conversions[key] = value
         
     if "z" not in cosmo_dict:
@@ -134,9 +139,9 @@ def transcribe_cosmology(cosmo_dict):
         DEFAULT_COSMO_DICT["h"] = np.sqrt(conversions["omega_m"] + \
             cosmology["omega_DE"] + cosmology["omega_K"])
         
-    for i in range(len(physical_keys)):
-        phys_key = physical_keys[i]
-        frac_key = fractional_keys[i]
+    for i in range(len(PHYSICAL_KEYS)):
+        phys_key = PHYSICAL_KEYS[i]
+        frac_key = FRACTIONAL_KEYS[i]
         if frac_key not in conversions:
             conversions[frac_key] = \
                 conversions[phys_key] / conversions["h"] ** 2    
@@ -283,11 +288,11 @@ def contains_ev_par(cosmo_dict):
             
     return 0
 
-doubly_defined_msg = "Do not simultaneously specify the physical and " + \
+DOUBLY_DEFINED_MSG = "Do not simultaneously specify the physical and " + \
     "fractional density in {}. Specify one, and " + \
     "Cassandra-Linear will automatically handle the other."
     
-out_of_bounds_msg = "The given value for {} falls outside of the range " + \
+OUT_OF_BOUNDS_MSG = "The given value for {} falls outside of the range " + \
     "over which the emulators were trained. Try a less extreme value."
 
 def error_check_cosmology(cosmo_dict):
@@ -355,14 +360,14 @@ def error_check_cosmology(cosmo_dict):
     
     # Make sure that no parameters are doubly-defined
     if "omega_b" in cosmo_dict and "Omega_b" in cosmo_dict:
-        raise ValueError(str.format(doubly_defined_msg, "baryons"))
+        raise ValueError(str.format(DOUBLY_DEFINED_MSG, "baryons"))
     if "omega_cdm" in cosmo_dict and "Omega_cdm" in cosmo_dict:
-        raise ValueError(str.format(doubly_defined_msg,
+        raise ValueError(str.format(DOUBLY_DEFINED_MSG,
                                       "cold dark matter"))
     if "omega_DE" in cosmo_dict and "Omega_DE" in cosmo_dict:
-        raise ValueError(str.format(doubly_defined_msg, "dark energy"))
+        raise ValueError(str.format(DOUBLY_DEFINED_MSG, "dark energy"))
     if "omega_K" in cosmo_dict and "Omega_K" in cosmo_dict:
-        raise ValueError(str.format(doubly_defined_msg, "curvature"))
+        raise ValueError(str.format(DOUBLY_DEFINED_MSG, "curvature"))
     if "h" in cosmo_dict and "H0" in cosmo_dict:
         raise ValueError("Do not specify h and H0 simultaneously. " + \
             "Specify one, and Cassandra-Linear will automatically handle " + \
@@ -376,14 +381,8 @@ def error_check_cosmology(cosmo_dict):
                     "curvature, dark energy, and the Hubble parameter. " + \
                     "Set two of the three, and Cassandra-Linear will " + \
                     "automatically handle the third.")
-    
 
-fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
-                   "Omega_nu"]
-physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
-                 "omega_nu"]
-
-missing_h_message = "A fractional density parameter was specified, but no " + \
+MISSING_H_MESSAGE = "A fractional density parameter was specified, but no " + \
     "value of 'h' was provided."    
 
 def convert_fractional_densities(cosmo_dict):
@@ -413,20 +412,20 @@ def convert_fractional_densities(cosmo_dict):
     if "H0" in conversions:
         conversions["h"] = conversions["H0"] / 100
  
-    for i in range(len(fractional_keys)):
-        frac_key = fractional_keys[i]
+    for i in range(len(FRACTIONAL_KEYS)):
+        frac_key = FRACTIONAL_KEYS[i]
         if frac_key in conversions:
             # Make sure that h is present, in the event that a fractional
             # density parameter was given.
             if "h" not in conversions:
-                raise ValueError(missing_h_message)
-            phys_key = physical_keys[i]
+                raise ValueError(MISSING_H_MESSAGE)
+            phys_key = PHYSICAL_KEYS[i]
             conversions[phys_key] = \
                 conversions[frac_key] * conversions["h"] ** 2
     
     return conversions
 
-missing_shape_message = "The value of {} was not provided. This is an " + \
+MISSING_SHAPE_MESSAGE = "The value of {} was not provided. This is an " + \
     "emulated shape parameter and is required. Setting to the Planck " + \
     "best-fit value ({})..."
    
@@ -471,27 +470,27 @@ def fill_in_defaults(cosmo_dict):
     conversions = cp.deepcopy(cosmo_dict)
     
     if "omega_b" not in conversions:
-        warnings.warn(str.format(missing_shape_message, "omega_b",
+        warnings.warn(str.format(MISSING_SHAPE_MESSAGE, "omega_b",
             DEFAULT_COSMO_DICT["omega_b"]))
         conversions["omega_b"] = DEFAULT_COSMO_DICT["omega_b"]
     elif not within_prior(conversions["omega_b"], 0):
-        raise ValueError(str.format(out_of_bounds_msg, "omega_b"))
+        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "omega_b"))
 
     # Ditto with cold dark matter.
     if "omega_cdm" not in conversions:
-        warnings.warn(str.format(missing_shape_message, "omega_cdm",
+        warnings.warn(str.format(MISSING_SHAPE_MESSAGE, "omega_cdm",
             DEFAULT_COSMO_DICT["omega_cdm"]))
         conversions["omega_cdm"] = DEFAULT_COSMO_DICT["omega_cdm"]
     elif not within_prior(conversions["omega_cdm"], 1):
-        raise ValueError(str.format(out_of_bounds_msg, "omega_cdm"))
+        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "omega_cdm"))
 
     # Ditto with the spectral index.
     if "ns" not in conversions:
-        warnings.warn(str.format(missing_shape_message, "ns",
+        warnings.warn(str.format(MISSING_SHAPE_MESSAGE, "ns",
             DEFAULT_COSMO_DICT["ns"]))
         conversions["ns"] = DEFAULT_COSMO_DICT["ns"]
     elif not within_prior(conversions["ns"], 2):
-        raise ValueError(str.format(out_of_bounds_msg, "ns"))
+        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "ns"))
     
     # Ditto with neutrinos.
     if "omega_nu" not in conversions:
@@ -500,7 +499,7 @@ def fill_in_defaults(cosmo_dict):
                       "...")
         conversions["omega_nu"] = DEFAULT_COSMO_DICT["omega_nu"]
     elif not within_prior(conversions["omega_nu"], 5):
-        raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
+        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "omega_nu"))
 
     if "As" not in conversions and neutrinos_massive(conversions):
         warnings.warn("The value of 'As' was not provided, even " + \
@@ -509,7 +508,7 @@ def fill_in_defaults(cosmo_dict):
                       str(DEFAULT_COSMO_DICT["As"]) + ")...")
         conversions["As"] = DEFAULT_COSMO_DICT["As"]
     elif "As" in conversions and not within_prior(conversions["As"], 4):
-        raise ValueError(str.format(out_of_bounds_msg, "As"))
+        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "As"))
 
     return conversions
 
@@ -604,7 +603,7 @@ def cosmology_to_Pk(**kwargs):
         cosmology = add_sigma12(cosmology)
     else:
         if not within_prior(cosmology.pars["sigma12"], 3):
-            raise ValueError(str.format(out_of_bounds_msg, "sigma12"))
+            raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "sigma12"))
 
     emu_vector = cosmology_to_emu_vec(cosmology)
     
