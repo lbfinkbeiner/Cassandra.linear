@@ -7,10 +7,25 @@ import warnings
 #!! Matteo's code, which still needs to be gracefully incorporated
 import cosmo_tools as brenda
 
-# This array should contain NumPy floats, so there's nothing to unpickle.
+data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
+
+# Load the array of inverse scale values at which the emulator makes P(k)
+# predictions. This array should contain NumPy floats, so there's nothing to
+# unpickle.
 K_AXIS = np.load(data_prefix + "300k.npy")
 
-# Aletehia model 0 parameters, given by the best fit to Planck data.
+# Load the emulators that we need. The extension "trainer" refers to the
+# data structure which encapsulates the emu. The user may refer to
+# "train_emu.py" from the developer tools for implementation details, but these
+# details are not necessary for the usage of this script.
+# sigma12 emu
+sigma12_trainer = np.load(data_prefix + "emus/sigma12.cle", allow_pickle=True)
+# Massive-neutrino emu
+nu_trainer = np.load(data_prefix + "emus/Hnu2.cle", allow_pickle=True)
+# Zero-mass neutrino emu
+zm_trainer = np.load(data_prefix + "emus/Hz1.cle", allow_pickle=True)
+
+# Aletehia model 0 parameters, given by the best fit to the Planck data.
 DEFAULT_COSMOLOGY = {
     'omega_b': 0.022445,
     'omega_cdm': 0.120567,
@@ -25,21 +40,12 @@ DEFAULT_COSMOLOGY = {
     'LGF': 0.7898639094999238
 }
 
-data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
-
 # Evolution parameter keys. If ANY of these appears in a cosmology dictionary,
 # the dictionary had better not include a sigma12 value...
-EV_PAR_KEYS = []
-
-# Load the emulators that we need. The extension "trainer" refers to the
-# data structure which encapsulates the emu. See "train_emu.py" from the
-# developer tools for details.
-# sigma12 emu
-sigma12_trainer = np.load(data_prefix + "emus/sigma12.cle", allow_pickle=True)
-# Massive-neutrino emu
-nu_trainer = np.load(data_prefix + "emus/Hnu2.cle", allow_pickle=True)
-# Massless-neutrino emu ("zm" for "zero mass")
-zm_trainer = np.load(data_prefix + "emus/Hz1.cle", allow_pickle=True)
+#! Should h be here? It's only an evolution parameter because of our particular
+# implementation of evolution mapping...
+EV_PAR_KEYS = ["omega_K", "Omega_K", "omega_DE", "Omega_DE", "w", "w0", 
+    "wa", "h"]
 
 def prior_file_to_array(prior_name="COMET"):
     """
@@ -102,6 +108,16 @@ def within_prior(value, index):
     """
     return value >= PRIORS[index][0] and value <= PRIORS[index][1]
 
+def neutrinos_massive(cosmo_dict):
+    if "omega_nu" in cosmo_dict:
+        return cosmo_dict["omega_nu"] > 0
+    elif "Omega_nu" in cosmo_dict:
+        return cosmo_dict["Omega_nu"] > 0
+    # We could find neither a fractional nor physical density. What is the
+    # default value?
+    return DEFAULT_COSMOLOGY["omega_nu"] > 0
+
+
 def contains_ev_par(cosmo_dict):
     """
     Check if the cosmology specified by @cosmo_dict contains a definition of
@@ -117,6 +133,11 @@ def contains_ev_par(cosmo_dict):
     for ev_par_key in EV_PAR_KEYS:
         if ev_par_key in cosmo_dict:
             return True
+            
+    # This is a special case: when the neutrinos are massless, As behaves as an
+    # evolution parameter.
+    if "As" not in cosmo_dict and (cosmo_dict["omega_nu"] == 0 or \
+        cosmo_dict["Omega_nu"] ("omega_nu" not in 
             
     return False
 
@@ -161,12 +182,23 @@ def error_check_cosmology(cosmo_dict):
     # predictions need to be tested all at once.... However, if we add such a
     # feature, we'll need to bring more of the error checking into this fn,
     # because currently some checks are scattered in other functions...
+    # 1. transcribe_cosmology warns in the absence of As
+    # 2. convert_fractional_densities raises missing_h error
+    # 3. fill_in_defaults raises out_of_bounds errors and missing shape
+    #   warnings
+    # 4. cosmology_to_Pk raises out_of_bounds error for sigma12
+    # 5. add_sigma12 raises an error if the evolution parameters are too
+    #   extreme.
+    # Probably, you won't be able to collect all of those errors here, but you
+    # will probably be able to extract most of them.
     
     # Make sure that the user EITHER specifies sigma12 or ev. param.s
     if "sigma12" in cosmo_dict and contains_ev_par(cosmo_dict):
         raise ValueError("sigma12 and at least one evolution parameter " + \
             "were simultaneously specified. If the desired sigma12 is " + \
-            "already known, no evolution parameters should appear here.")
+            "already known, no evolution parameters should appear here." + \
+            "Remember that where neutrinos are massless, the scalar mode " + \
+            "amplitude behaves as an evolution parameter.")
     
     # Make sure that no parameters are doubly-defined
     if "omega_b" in cosmo_dict and "Omega_b" in cosmo_dict:
@@ -197,7 +229,10 @@ fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
                    "Omega_nu"]
 physical_keys = ["omega_b", "omega_cdm", "omega_DE", "omega_K", \
                  "omega_nu"]
-   
+
+missing_h_message = "A fractional density parameter was specified, but no " + \
+    "value of 'h' was provided."    
+
 def convert_fractional_densities(cosmo_dict):
     """
     Convert any fractional densities specified in cosmo_dict, and raise an
@@ -235,9 +270,10 @@ def convert_fractional_densities(cosmo_dict):
                 conversions[frac_key] * conversions["h"] ** 2
     
     return conversions
-   
-missing_h_message = "A fractional density parameter was specified, but no " + \
-    "value of 'h' was provided."    
+
+missing_shape_message = "The value of {} was not provided. This is an " + \
+    "emulated shape parameter and is required. Setting to the Planck " + \
+    "best-fit value ({})..."
    
 def fill_in_defaults(cosmo_dict):
     """
@@ -280,7 +316,8 @@ def fill_in_defaults(cosmo_dict):
     conversions = cp.deepcopy(cosmo_dict)
     
     if "omega_b" not in conversions:
-        warnings.warn(str.format(missing_shape_message, "omega_b"))
+        warnings.warn(str.format(missing_shape_message, "omega_b",
+            DEFAULT_COSMOLOGY["omega_b"]))
         conversions["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
     elif not within_prior(conversions["omega_b"], 0):
         raise ValueError(str.format(out_of_bounds_msg, "omega_b"))
@@ -302,14 +339,15 @@ def fill_in_defaults(cosmo_dict):
     # Ditto with neutrinos.
     if "omega_nu" not in conversions:
         warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
-                      "a value of " + str(DEFAULT_COSMOLOGY["omega_nu"])
+                      "a value of " + str(DEFAULT_COSMOLOGY["omega_nu"]) + \
+                      "...")
         conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
     else:
         if "As" not in conversions:
             warnings.warn("The value of 'As' was not provided, even " + \
                           "though massive neutrinos were requested. " + \
-                          "Setting to the Planck best fit value, " + \
-                          str(DEFAULT_COSMOLOGY["As"] + "...")
+                          "Setting to the Planck best fit value (" + \
+                          str(DEFAULT_COSMOLOGY["As"]) + ")...")
             conversions["As"] = DEFAULT_COSMOLOGY["As"]
             
         if not within_prior(conversions["omega_nu"], 5):
@@ -530,6 +568,12 @@ def transcribe_cosmology(cosmo_dict):
     After this verification, the fn converts given quantities to desired
     quantities. For example, the code in this script primarily uses physical 
     densities, so fractional densities will be converted.
+    
+    ### cosmo_dict should already have everything in place. This function does
+        NOT fill in default values for essential parameters like omega_b
+        (and indeed will raise an error if these are not provided),
+        although it does fill in defaults in a oouple of evolution-parameter
+        cases, such as omega_K.
     """
     # Instead of directly building a brenda Cosmology, we use this temporary
     # dictionary; it helps to keep track of values that may need to be
@@ -557,7 +601,8 @@ def transcribe_cosmology(cosmo_dict):
             conversions[key] = value
         
     if "z" not in cosmo_dict:
-        warnings.warn("No redshift given. Using " + str(DEFAULT_COSMOLOGY['z'])
+        warnings.warn("No redshift given. Using " + \
+            str(DEFAULT_COSMOLOGY['z']))
         conversions["z"] = DEFAULT_COSMOLOGY['z']
 
     conversions["omega_m"] = conversions["omega_b"] + \
