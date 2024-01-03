@@ -262,7 +262,9 @@ missing_h_message = "A fractional density parameter was specified, but no " + \
 def convert_fractional_densities(cosmo_dict):
     """
     Convert any fractional densities specified in cosmo_dict, and raise an
-    error if there exists a fractional density without an accompanying h.
+    error if there exists a fractional density without an accompanying h. This
+    is a necessary step in calling the emulators, which were trained over
+    physical density parameters.
     
     :param cosmo_dict: dictionary giving values of cosmological parameters,
         where the parameters are referred to using the same keys as Brendalib
@@ -575,8 +577,9 @@ def estimate_sigma12(cosmology):
     the user specifies evolution parameters instead of explicitly giving
     sigma12.
     
-    :param cosmology: A fully filled-in Brenda Cosmology object whose evolution
-        parameters will be used to scale @old_sigma12. It is not
+    :param cosmology: A Brenda Cosmology object whose evolution
+        parameters will be used to estimate sigma12. This object should be
+        fully filled in except for sigma12. It is not
         recommended to manually create this object, but to start with a
         cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
         then to run it through the conversion functions
@@ -625,8 +628,8 @@ def cosmology_to_emu_vec(cosmology):
     the priors that they've stored, but the normalization code must
     nevertheless be explicitly invoked.
     
-    :param cosmology: A fully filled-in Brenda Cosmology object whose evolution
-        parameters will be used to scale @old_sigma12. It is not
+    :param cosmology: A Brenda Cosmology object. This object should be
+        fully filled in except for sigma12. It is not
         recommended to manually create this object, but to start with a
         cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
         then to run it through the conversion functions
@@ -659,38 +662,44 @@ def cosmology_to_emu_vec(cosmology):
 
 def transcribe_cosmology(cosmo_dict):
     """
-    Turn a set of arguments into a Brenda Cosmology object. Cosmology
-    objects follow a particular format for compatibility with the fn.s in
-    this script (and in Brendalib) that return various power spectra power.
+    Return a Brenda Cosmology object whose cosmological parameters are
+    determined by the entries of @cosmo_dict. This allows the user to
+    analytically scale emulated sigma12 values while enjoying the comparatively
+    simpler dictionary format, used for example for the DEFAULT_COSMO_DICT.
     
-    After this verification, the fn converts given quantities to desired
-    quantities. For example, the code in this script primarily uses physical 
-    densities, so fractional densities will be converted.
-    
-    In the event that two of {"omega_K", "omega_DE" and "h"} are missing, 
-    default values are filled in until the rest of the missing parameters can
-    be inferred. Defaults are applied in this order:
+    As part of this transcription, sometimes default values are added (beyond
+    what fill_in_defaults already handles). In the event that two of
+    {"omega_K", "omega_DE" and "h"} are missing, default values are filled in
+    until the rest of the missing parameters can be inferred. Defaults are
+    applied in this order:
     1. omega_K
     2. h
     3. omega_DE
     
-    ### cosmo_dict should already have everything in place. This function does
-        NOT fill in default values for essential parameters like omega_b
-        (and indeed will raise an error if these are not provided),
-        although it does fill in defaults in a oouple of evolution-parameter
-        cases, such as omega_K.
+    param cosmology: A fully filled-in Brenda Cosmology object whose evolution
+        parameters will be used to scale @old_sigma12. It is not
+        recommended to manually create this object, but to start with a
+        cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
+        then to run it through the conversion functions
+        convert_fractional_densities, fill_in_defaults, and
+        transcribe_cosmology, optionally verifying the validity of @cosmology
+        with error_check_cosmology. These functions facilitate the creation of
+        a fully-specified Brenda Cosmology object.
+    :type cosmology: instance of the Cosmology class from Brenda.
+    warning:: This function does NOT fill in default values for essential
+        parameters like omega_b (and indeed will raise an error if these are
+        not provided). If @cosmo_dict still needs to be cleaned and processed,
+        use the functions error_check_cosmology, convert_fractional_densities,
+        and fill_in_defaults.
     """
     # Instead of directly building a brenda Cosmology, we use this temporary
     # dictionary; it helps to keep track of values that may need to be
     # converted or inferred from others.
     conversions = {}
     
-    if "w" in cosmo_dict:
-        conversions["w0"] = cosmo_dict["w"]
-    if "w0" in cosmo_dict:
-        conversions["w0"] = cosmo_dict["w0"]
-    if "wa" in cosmo_dict:
-        conversions["wa"] = cosmo_dict["wa"]
+    for key in ["w", "w0", "wa"]:
+        if key in cosmo_dict:
+            conversions[key] = cosmo_dict[key]
 
     # If h is present, set it right away, so that we can begin converting
     # fractional densities.
