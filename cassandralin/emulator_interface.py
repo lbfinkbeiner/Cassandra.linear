@@ -384,6 +384,7 @@ def fill_in_defaults(cosmo_dict):
 
     return conversions
 
+
 def cosmology_to_Pk(**kwargs):
     """
     Predict the power spectrum based on cosmological parameters provided by the
@@ -531,16 +532,8 @@ def add_sigma12(cosmology):
     # Extreme de-nesting required due to the format of the emu's.
     unscaled_sigma12 = SIGMA12_TRAINER.p_emu.predict(base_normalized)[0][0]
     
-    # In order to rescale the emulated sigma12 value, we'll need to calculate
-    # the LGF of the emulated cosmology: this is DEFAULT_BRENDA_COSMO, but with
-    # the three shape parameters specified (ns makes no difference but we
-    # include it here for completeness).
-    unscaled_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
-    for key in ["omega_b", "omega_cdm", "ns"]:
-        unscaled_cosmology.pars[key] = new_cosmology.pars[key]
-    
     new_cosmology.pars["sigma12"] = scale_sigma12(new_cosmology,
-        unscaled_cosmology, unscaled_sigma12)
+        unscaled_sigma12)
     
     if not within_prior(new_cosmology.pars["sigma12"], 3):
         raise ValueError("The given evolution parameters are invalid " + \
@@ -549,11 +542,11 @@ def add_sigma12(cosmology):
     
     return new_cosmology
     
-def scale_sigma12(new_cosmology, old_cosmology, old_sigma12):
+    
+def scale_sigma12(cosmology, old_sigma12):
     """
-    Analytically solve for a new sigma12 value given a baseline (an old set of
-    cosmological parameters and an old sigma12 value) and a new set of
-    cosmological parameters.
+    Analytically solve for a new sigma12 value given a baseline (an emulated
+    sigma12 value) and a new set of cosmological parameters.
     
     Ideally, the user wouldn't call this function explicitly. It would
     automatically be called under the hood by cosmology_to_Pk in the event that
@@ -569,7 +562,7 @@ def scale_sigma12(new_cosmology, old_cosmology, old_sigma12):
         with error_check_cosmology. These functions facilitate the creation of
         a fully-specified Brenda Cosmology object.
     :type cosmology: instance of the Cosmology class from Brenda.
-    
+
     @sigma12_m0: float
         The sigma12 value returned by the sigma12 emulator. This is what the
         sigma12 value would be if we overwrote Aletheia model 0 (i.e. the
@@ -582,22 +575,32 @@ def scale_sigma12(new_cosmology, old_cosmology, old_sigma12):
         An estimate of the sigma12 given the cosmological parameters associated
         with @cosmology.
     """
-    new_a = 1.0 / (1.0 + new_cosmology.pars["z"])
-    old_a = 1.0 / (1.0 + old_cosmology.pars["z"])
+    # In order to scale the sigma12 value, we'll need to calculate the LGF of
+    # the emulated cosmology: this is DEFAULT_BRENDA_COSMO, but with the three
+    # shape parameters specified (ns makes no difference but we include it here
+    # for completeness).
+    emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
+    for key in ["omega_b", "omega_cdm", "ns"]:
+        emu_cosmology.pars[key] = cosmology.pars[key]
+    
+    new_a = 1.0 / (1.0 + cosmology.pars["z"])
+    old_a = 1.0 / (1.0 + emu_cosmology.pars["z"])
     
     #! Should I be concerned about this a0 parameter?
     # After some cursory tests, I found that it has very little impact.
     # De-nest
-    new_LGF = new_cosmology.growth_factor(new_a, a0=1e-3, solver='odeint')[0]
-    old_LGF = old_cosmology.growth_factor(old_a, a0=1e-3, solver='odeint')[0]
+    new_LGF = cosmology.growth_factor(new_a, a0=1e-3, solver='odeint')[0]
+    old_LGF = emu_cosmology.growth_factor(old_a, a0=1e-3,
+        solver='odeint')[0]
     growth_ratio = new_LGF / old_LGF
     
     # If the user specified no A_s value, the following factor automatically
     # disappears because, in this case, transcribe_cosmology sets
     # cosmology["As"] = DEFAULT_COSMO_DICT["As"]
-    As_ratio = cosmology.pars["As"] / old_cosmology["As"]
+    As_ratio = cosmology.pars["As"] / emu_cosmology["As"]
     
     return sigma12_m0 * growth_ratio * np.sqrt(As_ratio)
+
 
 def cosmology_to_emu_vec(cosmology):
     """
