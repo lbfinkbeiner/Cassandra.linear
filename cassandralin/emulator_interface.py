@@ -19,7 +19,8 @@ K_AXIS = np.load(DATA_PREFIX + "300k.npy")
 # "train_emu.py" from the developer tools for implementation details, but these
 # details are not necessary for the usage of this script.
 # sigma12 emu
-SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12.cle", allow_pickle=True)
+SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v2.cle",
+    allow_pickle=True)
 # Massive-neutrino emu
 NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu2.cle", allow_pickle=True)
 # Zero-mass neutrino emu
@@ -38,6 +39,132 @@ DEFAULT_COSMO_DICT = {
     'z': 0.,
     'sigma12': 0.82476394,
 }
+
+def transcribe_cosmology(cosmo_dict):
+    """
+    Return a Brenda Cosmology object whose cosmological parameters are
+    determined by the entries of @cosmo_dict. This allows the user to
+    analytically scale emulated sigma12 values while enjoying the comparatively
+    simpler dictionary format, used for example for the DEFAULT_COSMO_DICT.
+    
+    As part of this transcription, sometimes default values are added (beyond
+    what fill_in_defaults already handles). In the event that two of
+    {"omega_K", "omega_DE" and "h"} are missing, default values are filled in
+    until the rest of the missing parameters can be inferred. Defaults are
+    applied in this order:
+    1. omega_K
+    2. h
+    3. omega_DE
+    
+    :param cosmo_dict: dictionary giving values of cosmological parameters,
+        where the parameters are referred to using the same keys as Brendalib
+        does in its Cosmology objects. It is recommended to error check and
+        process this dictionary first, with fns like
+        convert_fractional_densities, fill_in_defaults, and
+        error_check_cosmology.
+    :type cosmo_dict: dict
+    :return: A Brenda Cosmology object fully filled in except for sigma12. 
+    :rtype: instance of the Cosmology class from Brenda.
+    warning:: This function does NOT fill in default values for essential
+        parameters like omega_b (and indeed will raise an error if these are
+        not provided). If @cosmo_dict still needs to be cleaned and processed,
+        use the functions error_check_cosmology, convert_fractional_densities,
+        and fill_in_defaults.
+    """
+    # Instead of directly building a brenda Cosmology, we use this temporary
+    # dictionary; it helps to keep track of values that may need to be
+    # converted or inferred from others.
+    conversions = {}
+    
+    for key in ["w", "w0", "wa"]:
+        if key in cosmo_dict:
+            conversions[key] = cosmo_dict[key]
+
+    # If h is present, set it right away, so that we can begin converting
+    # fractional densities.
+    if "h" in cosmo_dict:
+        conversions["h"] = cosmo_dict["h"]
+    elif "H0" in cosmo_dict:
+        conversions["h"] = cosmo_dict["H0"] / 100
+    
+    # Nothing else requires such conversions, so add the remaining values
+    # directly to the working dictionary.
+    for key, value in cosmo_dict.items():
+        if key not in fractional_keys:
+            conversions[key] = value
+        
+    if "z" not in cosmo_dict:
+        warnings.warn("No redshift given. Using " + \
+            str(DEFAULT_COSMO_DICT['z']))
+        conversions["z"] = DEFAULT_COSMO_DICT['z']
+
+    conversions["omega_m"] = conversions["omega_b"] + \
+        conversions["omega_cdm"] + conversions["omega_nu"]
+
+    # Fill in default values for density parameters, because we need these to
+    # compute h.
+
+    # The question is, when omega_K is not specified, should we immediately set
+    # it to default, or immediately set h to default and back-calculate
+    # curvature?
+    if "omega_DE" in conversions and "omega_K" not in conversions:
+        if "h" not in conversions:
+            conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
+        else:
+            conversions["omega_K"] = conversions["h"] ** 2 - \
+                conversions["omega_m"] - conversions["omega_DE"]
+    elif "omega_K" not in conversions: # omega_DE also not in conversions
+        conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
+        if "h" not in conversions:
+            conversions["h"] = DEFAULT_COSMO_DICT["h"]
+        conversions["omega_DE"] = conversions["h"] ** 2 - \
+            conversions["omega_m"] - conversions["omega_K"]
+            
+    # Analogous block for dark energy
+    if "omega_K" in conversions and "omega_DE" not in conversions:
+        if "h" not in conversions:
+            conversions["omega_DE"] = DEFAULT_COSMO_DICT["omega_DE"]
+        else:
+            conversions["omega_DE"] = conversions["h"] ** 2 - \
+                conversions["omega_m"] - conversions["omega_K"]
+                
+    # If h wasn't given, compute it now that we have all of the physical
+    # densities.
+    if "h" not in conversions:
+        DEFAULT_COSMO_DICT["h"] = np.sqrt(conversions["omega_m"] + \
+            cosmology["omega_DE"] + cosmology["omega_K"])
+        
+    for i in range(len(physical_keys)):
+        phys_key = physical_keys[i]
+        frac_key = fractional_keys[i]
+        if frac_key not in conversions:
+            conversions[frac_key] = \
+                conversions[phys_key] / conversions["h"] ** 2    
+        
+    # package it up for brenda
+    if "As" not in conversions:
+        conversions["As"] = DEFAULT_COSMO_DICT["As"]
+
+    conversions["Omega_m"] = conversions["omega_m"] / conversions["h"] ** 2
+    conversions["de_model"] = "w0wa"
+    # We'll probably want to change this at some point, especially to allow
+    # stuff like the infamous Aletheia model 8.
+    conversions["Om_EdE"] = False
+    # Brenda lib doesn't distinguish nu from CDM
+    conversions["omega_cdm"] += conversions["omega_nu"]
+    conversions["Omega_cdm"] += conversions["Omega_nu"]
+    conversions["sigma8"] = None
+    
+    cosmology = brenda.Cosmology()
+    for key in cosmology.pars.keys():
+        if key not in conversions:
+            conversions[key] = cosmology.pars[key]
+    
+    # The omega_K field will be ignored, but remembered through h
+    # z will be ignored by brenda, but used by this code.
+    cosmology.pars = conversions
+        
+    return cosmology
 
 DEFAULT_BRENDA_COSMO = transcribe_cosmology(DEFAULT_COSMO_DICT)    
 
@@ -658,131 +785,4 @@ def cosmology_to_emu_vec(cosmology):
         ])
         full_vector = np.append(base, extension)
         return NU_TRAINER.p_emu.convert_to_normalized_params(full_vector)
-
-
-def transcribe_cosmology(cosmo_dict):
-    """
-    Return a Brenda Cosmology object whose cosmological parameters are
-    determined by the entries of @cosmo_dict. This allows the user to
-    analytically scale emulated sigma12 values while enjoying the comparatively
-    simpler dictionary format, used for example for the DEFAULT_COSMO_DICT.
-    
-    As part of this transcription, sometimes default values are added (beyond
-    what fill_in_defaults already handles). In the event that two of
-    {"omega_K", "omega_DE" and "h"} are missing, default values are filled in
-    until the rest of the missing parameters can be inferred. Defaults are
-    applied in this order:
-    1. omega_K
-    2. h
-    3. omega_DE
-    
-    :param cosmo_dict: dictionary giving values of cosmological parameters,
-        where the parameters are referred to using the same keys as Brendalib
-        does in its Cosmology objects. It is recommended to error check and
-        process this dictionary first, with fns like
-        convert_fractional_densities, fill_in_defaults, and
-        error_check_cosmology.
-    :type cosmo_dict: dict
-    :return: A Brenda Cosmology object fully filled in except for sigma12. 
-    :rtype: instance of the Cosmology class from Brenda.
-    warning:: This function does NOT fill in default values for essential
-        parameters like omega_b (and indeed will raise an error if these are
-        not provided). If @cosmo_dict still needs to be cleaned and processed,
-        use the functions error_check_cosmology, convert_fractional_densities,
-        and fill_in_defaults.
-    """
-    # Instead of directly building a brenda Cosmology, we use this temporary
-    # dictionary; it helps to keep track of values that may need to be
-    # converted or inferred from others.
-    conversions = {}
-    
-    for key in ["w", "w0", "wa"]:
-        if key in cosmo_dict:
-            conversions[key] = cosmo_dict[key]
-
-    # If h is present, set it right away, so that we can begin converting
-    # fractional densities.
-    if "h" in cosmo_dict:
-        conversions["h"] = cosmo_dict["h"]
-    elif "H0" in cosmo_dict:
-        conversions["h"] = cosmo_dict["H0"] / 100
-    
-    # Nothing else requires such conversions, so add the remaining values
-    # directly to the working dictionary.
-    for key, value in cosmo_dict.items():
-        if key not in fractional_keys:
-            conversions[key] = value
-        
-    if "z" not in cosmo_dict:
-        warnings.warn("No redshift given. Using " + \
-            str(DEFAULT_COSMO_DICT['z']))
-        conversions["z"] = DEFAULT_COSMO_DICT['z']
-
-    conversions["omega_m"] = conversions["omega_b"] + \
-        conversions["omega_cdm"] + conversions["omega_nu"]
-
-    # Fill in default values for density parameters, because we need these to
-    # compute h.
-
-    # The question is, when omega_K is not specified, should we immediately set
-    # it to default, or immediately set h to default and back-calculate
-    # curvature?
-    if "omega_DE" in conversions and "omega_K" not in conversions:
-        if "h" not in conversions:
-            conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
-        else:
-            conversions["omega_K"] = conversions["h"] ** 2 - \
-                conversions["omega_m"] - conversions["omega_DE"]
-    elif "omega_K" not in conversions: # omega_DE also not in conversions
-        conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
-        if "h" not in conversions:
-            conversions["h"] = DEFAULT_COSMO_DICT["h"]
-        conversions["omega_DE"] = conversions["h"] ** 2 - \
-            conversions["omega_m"] - conversions["omega_K"]
-            
-    # Analogous block for dark energy
-    if "omega_K" in conversions and "omega_DE" not in conversions:
-        if "h" not in conversions:
-            conversions["omega_DE"] = DEFAULT_COSMO_DICT["omega_DE"]
-        else:
-            conversions["omega_DE"] = conversions["h"] ** 2 - \
-                conversions["omega_m"] - conversions["omega_K"]
-                
-    # If h wasn't given, compute it now that we have all of the physical
-    # densities.
-    if "h" not in conversions:
-        DEFAULT_COSMO_DICT["h"] = np.sqrt(conversions["omega_m"] + \
-            cosmology["omega_DE"] + cosmology["omega_K"])
-        
-    for i in range(len(physical_keys)):
-        phys_key = physical_keys[i]
-        frac_key = fractional_keys[i]
-        if frac_key not in conversions:
-            conversions[frac_key] = \
-                conversions[phys_key] / conversions["h"] ** 2    
-        
-    # package it up for brenda
-    if "As" not in conversions:
-        conversions["As"] = DEFAULT_COSMO_DICT["As"]
-
-    conversions["Omega_m"] = conversions["omega_m"] / conversions["h"] ** 2
-    conversions["de_model"] = "w0wa"
-    # We'll probably want to change this at some point, especially to allow
-    # stuff like the infamous Aletheia model 8.
-    conversions["Om_EdE"] = False
-    # Brenda lib doesn't distinguish nu from CDM
-    conversions["omega_cdm"] += conversions["omega_nu"]
-    conversions["Omega_cdm"] += conversions["Omega_nu"]
-    conversions["sigma8"] = None
-    
-    cosmology = brenda.Cosmology()
-    for key in cosmology.pars.keys():
-        if key not in conversions:
-            conversions[key] = cosmology.pars[key]
-    
-    # The omega_K field will be ignored, but remembered through h
-    # z will be ignored by brenda, but used by this code.
-    cosmology.pars = conversions
-        
-    return cosmology
 
