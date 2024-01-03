@@ -120,14 +120,6 @@ def contains_ev_par(cosmo_dict):
             
     return False
 
-ambiguous_sigma12_msg = "sigma12 and at least one evolution parameter " + \
-    "were simultaneously specified. If the desired sigma12 is already " + \
-    "known, no evolution parameters should appear."
-
-spec_conflict_msg = "Do not attempt to simultaneously set curvature, " + \
-    "dark energy, and the Hubble parameter. Set two of the three, and " + \
-    "Cassandra-Linear will automatically handle the third."
-
 doubly_defined_msg = "Do not simultaneously specify the physical and " + \
     "fractional density in {}. Specify one, and " + \
     "Cassandra-Linear will automatically handle the other."
@@ -172,7 +164,9 @@ def error_check_cosmology(cosmo_dict):
     
     # Make sure that the user EITHER specifies sigma12 or ev. param.s
     if "sigma12" in cosmo_dict and contains_ev_par(cosmo_dict):
-        raise ValueError(ambiguous_sigma12_msg)
+        raise ValueError("sigma12 and at least one evolution parameter " + \
+            "were simultaneously specified. If the desired sigma12 is " + \
+            "already known, no evolution parameters should appear here.")
     
     # Make sure that no parameters are doubly-defined
     if "omega_b" in cosmo_dict and "Omega_b" in cosmo_dict:
@@ -193,7 +187,10 @@ def error_check_cosmology(cosmo_dict):
     if "h" in cosmo_dict or "H0" in cosmo_dict:
         if "Omega_DE" in cosmo_dict or "omega_DE" in cosmo_dict:
             if "Omega_K" in cosmo_dict or "omega_k" in cosmo_dict:
-                raise ValueError(spec_conflict_msg)
+                raise ValueError("Do not attempt to simultaneously set " + \
+                    "curvature, dark energy, and the Hubble parameter. " + \
+                    "Set two of the three, and Cassandra-Linear will " + \
+                    "automatically handle the third.")
     
 
 fractional_keys = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K", \
@@ -278,7 +275,7 @@ def fill_in_defaults(cosmo_dict):
         only affect the predicted spectra by an analytical shift in amplitude.
         This fn will warn the user if it is filling in these parameters with
         default values, because that almost certainly indicates that the user
-        has forgotten to provide these values.
+        has forgotten to provide them.
     """
     conversions = cp.deepcopy(cosmo_dict)
     
@@ -305,13 +302,16 @@ def fill_in_defaults(cosmo_dict):
     # Ditto with neutrinos.
     if "omega_nu" not in conversions:
         warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
-                      "massless neutrinos...")
+                      "a value of " + str(DEFAULT_COSMOLOGY["omega_nu"])
         conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
     else:
         if "As" not in conversions:
             warnings.warn("The value of 'As' was not provided, even " + \
                           "though massive neutrinos were requested. " + \
-                          "Setting to the Planck best fit value...")
+                          "Setting to the Planck best fit value, " + \
+                          str(DEFAULT_COSMOLOGY["As"] + "...")
+            conversions["As"] = DEFAULT_COSMOLOGY["As"]
+            
         if not within_prior(conversions["omega_nu"], 5):
             raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
             
@@ -523,7 +523,7 @@ def cosmology_to_emu_vec(cosmology):
 
 def transcribe_cosmology(cosmo_dict):
     """
-    Turn a set of arguments into a complete Brenda Cosmology object. Cosmology
+    Turn a set of arguments into a Brenda Cosmology object. Cosmology
     objects follow a particular format for compatibility with the fn.s in
     this script (and in Brendalib) that return various power spectra power.
     
@@ -608,7 +608,9 @@ def transcribe_cosmology(cosmo_dict):
         
     # package it up for brenda
     if "As" not in conversions:
-        conversions["As"] = DEFAULT_COSMOLOGY["As"]
+        warnings.warn("No value of 'As' found. Brenda will apply a " + \
+            "default value, but this is probably not what you want. Did " + \
+            "you remember to run fill_in_defaults first?")
 
     conversions["Omega_m"] = conversions["omega_m"] / conversions["h"] ** 2
     conversions["de_model"] = "w0wa"
