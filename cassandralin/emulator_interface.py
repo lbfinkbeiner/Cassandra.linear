@@ -518,22 +518,7 @@ def add_sigma12(cosmology):
     """
     new_cosmology = cp.deepcopy(cosmology)
     
-    base = np.array([
-        new_cosmology.pars["omega_b"],
-        new_cosmology.pars["omega_cdm"],
-        new_cosmology.pars["ns"]
-    ])
-    
-    base_normalized = SIGMA12_TRAINER.p_emu.convert_to_normalized_params(base)
-
-    # First, emulate sigma12 as though the evolution parameters were all given
-    # by the current best fit in the literature.
-    
-    # Extreme de-nesting required due to the format of the emu's.
-    unscaled_sigma12 = SIGMA12_TRAINER.p_emu.predict(base_normalized)[0][0]
-    
-    new_cosmology.pars["sigma12"] = scale_sigma12(new_cosmology,
-        unscaled_sigma12)
+    new_cosmology.pars["sigma12"] = scale_sigma12(new_cosmology)
     
     if not within_prior(new_cosmology.pars["sigma12"], 3):
         raise ValueError("The given evolution parameters are invalid " + \
@@ -541,9 +526,24 @@ def add_sigma12(cosmology):
             "Try a less extreme configuration.")
     
     return new_cosmology
+
+def emulate_sigma12(cosmology):
+    input_vector = np.array([
+        cosmology.pars["omega_b"],
+        cosmology.pars["omega_cdm"],
+        cosmology.pars["ns"]
+    ])
     
+    input_normalized = \
+        SIGMA12_TRAINER.p_emu.convert_to_normalized_params(input_vector)
+
+    # First, emulate sigma12 as though the evolution parameters were all given
+    # by the current best fit in the literature.
     
-def scale_sigma12(cosmology, old_sigma12):
+    # Extreme de-nesting required due to the format of the emu's.
+    return SIGMA12_TRAINER.p_emu.predict(input_normalized)[0][0]
+    
+def scale_sigma12(cosmology):
     """
     Analytically solve for a new sigma12 value given a baseline (an emulated
     sigma12 value) and a new set of cosmological parameters.
@@ -553,7 +553,8 @@ def scale_sigma12(cosmology, old_sigma12):
     the user specifies evolution parameters instead of explicitly giving
     sigma12.
     
-    :param cosmology: A fully filled-in Brenda Cosmology object. It is not
+    :param cosmology: A fully filled-in Brenda Cosmology object whose evolution
+        parameters will be used to scale @old_sigma12. It is not
         recommended to manually create this object, but to start with a
         cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
         then to run it through the conversion functions
@@ -562,12 +563,6 @@ def scale_sigma12(cosmology, old_sigma12):
         with error_check_cosmology. These functions facilitate the creation of
         a fully-specified Brenda Cosmology object.
     :type cosmology: instance of the Cosmology class from Brenda.
-
-    @sigma12_m0: float
-        The sigma12 value returned by the sigma12 emulator. This is what the
-        sigma12 value would be if we overwrote Aletheia model 0 (i.e. the
-        Planck best fit parameters) with this cosmology's values for omega_b,
-        omega_cdm, and n_s.
     
     :return:
     
@@ -579,6 +574,7 @@ def scale_sigma12(cosmology, old_sigma12):
     # the emulated cosmology: this is DEFAULT_BRENDA_COSMO, but with the three
     # shape parameters specified (ns makes no difference but we include it here
     # for completeness).
+    old_sigma12 = emulate_sigma12(cosmology)
     emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
     for key in ["omega_b", "omega_cdm", "ns"]:
         emu_cosmology.pars[key] = cosmology.pars[key]
