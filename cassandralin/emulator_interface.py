@@ -499,8 +499,8 @@ def add_sigma12(cosmology):
     
     :param cosmology: A fully filled-in Brenda Cosmology object. It is not
         recommended to manually create this object, but to start with a
-        cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and then
-        to run it through the conversion functions
+        cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
+        then to run it through the conversion functions
         convert_fractional_densities, fill_in_defaults, and
         transcribe_cosmology, optionally verifying the validity of @cosmology
         with error_check_cosmology. These functions facilitate the creation of
@@ -556,14 +556,19 @@ def scale_sigma12(new_cosmology, old_cosmology, old_sigma12):
     cosmological parameters.
     
     Ideally, the user wouldn't call this function explicitly. It would
-    automatically be called under the hood in the event that the user specifies
-    evolution parameters instead of explicitly giving sigma12.
-
+    automatically be called under the hood by cosmology_to_Pk in the event that
+    the user specifies evolution parameters instead of explicitly giving
+    sigma12.
     
-    
-    @cosmology: Brenda Cosmology object
-        This contains all of the cosmological parameters we'll need in order to
-        compute the linear growth factor. 
+    :param cosmology: A fully filled-in Brenda Cosmology object. It is not
+        recommended to manually create this object, but to start with a
+        cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
+        then to run it through the conversion functions
+        convert_fractional_densities, fill_in_defaults, and
+        transcribe_cosmology, optionally verifying the validity of @cosmology
+        with error_check_cosmology. These functions facilitate the creation of
+        a fully-specified Brenda Cosmology object.
+    :type cosmology: instance of the Cosmology class from Brenda.
     
     @sigma12_m0: float
         The sigma12 value returned by the sigma12 emulator. This is what the
