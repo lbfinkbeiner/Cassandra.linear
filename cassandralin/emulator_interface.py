@@ -26,7 +26,7 @@ NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu2.cle", allow_pickle=True)
 ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz1.cle", allow_pickle=True)
 
 # Aletehia model 0 parameters, given by the best fit to the Planck data.
-DEFAULT_COSMOLOGY = {
+DEFAULT_COSMO_DICT = {
     'omega_b': 0.022445,
     'omega_cdm': 0.120567,
     'ns': 0.96,
@@ -37,8 +37,9 @@ DEFAULT_COSMOLOGY = {
     'h': 0.67,
     'z': 0.,
     'sigma12': 0.82476394,
-    'LGF': 0.7898639094999238
 }
+
+DEFAULT_BRENDA_COSMO = transcribe_cosmology(DEFAULT_COSMO_DICT)    
 
 # Evolution parameter keys. If ANY of these appears in a cosmology dictionary,
 # the dictionary had better not include a sigma12 value...
@@ -126,7 +127,7 @@ def neutrinos_massive(cosmo_dict):
         return cosmo_dict["Omega_nu"] > 0
     # We could find neither a fractional nor physical density. What is the
     # default value?
-    return DEFAULT_COSMOLOGY["omega_nu"] > 0
+    return DEFAULT_COSMO_DICT["omega_nu"] > 0
 
 
 def contains_ev_par(cosmo_dict):
@@ -315,7 +316,7 @@ def fill_in_defaults(cosmo_dict):
     addition: As and omega_nu.
 
     The default values for all of these required parameters are recorded in the
-    DEFAULT_COSMOLOGY dictionary at the top of this script. For example, if
+    DEFAULT_COSMO_DICT dictionary at the top of this script. For example, if
     @cosmo_dict lacks an entry for omega_nu, neutrinos are assumed to be
     massless and omega_nu is set to zero. 
     
@@ -342,33 +343,33 @@ def fill_in_defaults(cosmo_dict):
     
     if "omega_b" not in conversions:
         warnings.warn(str.format(missing_shape_message, "omega_b",
-            DEFAULT_COSMOLOGY["omega_b"]))
-        conversions["omega_b"] = DEFAULT_COSMOLOGY["omega_b"]
+            DEFAULT_COSMO_DICT["omega_b"]))
+        conversions["omega_b"] = DEFAULT_COSMO_DICT["omega_b"]
     elif not within_prior(conversions["omega_b"], 0):
         raise ValueError(str.format(out_of_bounds_msg, "omega_b"))
 
     # Ditto with cold dark matter.
     if "omega_cdm" not in conversions:
         warnings.warn(str.format(missing_shape_message, "omega_cdm",
-            DEFAULT_COSMOLOGY["omega_cdm"]))
-        conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
+            DEFAULT_COSMO_DICT["omega_cdm"]))
+        conversions["omega_cdm"] = DEFAULT_COSMO_DICT["omega_cdm"]
     elif not within_prior(conversions["omega_cdm"], 1):
         raise ValueError(str.format(out_of_bounds_msg, "omega_cdm"))
 
     # Ditto with the spectral index.
     if "ns" not in conversions:
         warnings.warn(str.format(missing_shape_message, "ns",
-            DEFAULT_COSMOLOGY["ns"]))
-        conversions["ns"] = DEFAULT_COSMOLOGY["ns"]
+            DEFAULT_COSMO_DICT["ns"]))
+        conversions["ns"] = DEFAULT_COSMO_DICT["ns"]
     elif not within_prior(conversions["ns"], 2):
         raise ValueError(str.format(out_of_bounds_msg, "ns"))
     
     # Ditto with neutrinos.
     if "omega_nu" not in conversions:
         warnings.warn("The value of 'omega_nu' was not provided. Assuming " + \
-                      "a value of " + str(DEFAULT_COSMOLOGY["omega_nu"]) + \
+                      "a value of " + str(DEFAULT_COSMO_DICT["omega_nu"]) + \
                       "...")
-        conversions["omega_nu"] = DEFAULT_COSMOLOGY["omega_nu"]
+        conversions["omega_nu"] = DEFAULT_COSMO_DICT["omega_nu"]
     elif not within_prior(conversions["omega_nu"], 5):
         raise ValueError(str.format(out_of_bounds_msg, "omega_nu"))
 
@@ -376,8 +377,8 @@ def fill_in_defaults(cosmo_dict):
         warnings.warn("The value of 'As' was not provided, even " + \
                       "though massive neutrinos were requested. " + \
                       "Setting to the Planck best fit value (" + \
-                      str(DEFAULT_COSMOLOGY["As"]) + ")...")
-        conversions["As"] = DEFAULT_COSMOLOGY["As"]
+                      str(DEFAULT_COSMO_DICT["As"]) + ")...")
+        conversions["As"] = DEFAULT_COSMO_DICT["As"]
     elif "As" in conversions and not within_prior(conversions["As"], 4):
         raise ValueError(str.format(out_of_bounds_msg, "As"))
 
@@ -399,48 +400,48 @@ def cosmology_to_Pk(**kwargs):
     best fit to the Planck data but without massive neutrinos.
     
     :param omega_b: Physical density in baryons, defaults to
-        DEFAULT_COSMOLOGY['omega_b']
+        DEFAULT_COSMO_DICT['omega_b']
     :type omega_b: float
     :param Omega_b: Fractional density in baryons, defaults to
-        DEFAULT_COSMOLOGY['omega_b'] / DEFAULT_COSMOLOGY['h'] ** 2
+        DEFAULT_COSMO_DICT['omega_b'] / DEFAULT_COSMO_DICT['h'] ** 2
     :type Omega_b: float
     :param omega_cdm: Physical density in cold dark matter, defaults to
-        DEFAULT_COSMOLOGY['omega_cdm']
+        DEFAULT_COSMO_DICT['omega_cdm']
     :type omega_cdm: float
     :param Omega_cdm: Fractional density in cold dark matter, defaults to
-        DEFAULT_COSMOLOGY['omega_cdm'] / DEFAULT_COSMOLOGY['h'] ** 2
+        DEFAULT_COSMO_DICT['omega_cdm'] / DEFAULT_COSMO_DICT['h'] ** 2
     :type Omega_cdm: float
     :param omega_DE: Physical density in dark energy, defaults to
-        DEFAULT_COSMOLOGY['omega_DE']
+        DEFAULT_COSMO_DICT['omega_DE']
     :type omega_DE: float
     :param Omega_DE: Fractional density in dark energy, defaults to
-        DEFAULT_COSMOLOGY['omega_DE'] / DEFAULT_COSMOLOGY['h'] ** 2
+        DEFAULT_COSMO_DICT['omega_DE'] / DEFAULT_COSMO_DICT['h'] ** 2
     :type Omega_DE: float
     :param omega_nu: Physical density in neutrinos, defaults to
-        DEFAULT_COSMOLOGY['omega_nu']
+        DEFAULT_COSMO_DICT['omega_nu']
     :type omega_nu: float
     :param Omega_nu: Fractional density in neutrinos, defaults to
-        DEFAULT_COSMOLOGY['omega_nu'] / DEFAULT_COSMOLOGY['h'] ** 2
+        DEFAULT_COSMO_DICT['omega_nu'] / DEFAULT_COSMO_DICT['h'] ** 2
     :type Omega_nu: float
     :param omega_K: Physical density in curvature, defaults to
-        DEFAULT_COSMOLOGY['omega_K']
+        DEFAULT_COSMO_DICT['omega_K']
     :type omega_K: float
     :param Omega_K: Fractional density in curvature, defaults to
-        DEFAULT_COSMOLOGY['omega_K'] / DEFAULT_COSMOLOGY['h'] ** 2
+        DEFAULT_COSMO_DICT['omega_K'] / DEFAULT_COSMO_DICT['h'] ** 2
     :type Omega_K: float
     :param h: Dimensionless Hubble parameter, defaults to
-        DEFAULT_COSMOLOGY['h']
+        DEFAULT_COSMO_DICT['h']
     :type h: float
     :param H0: Hubble parameter in km / s / Mpc, defaults to
-        DEFAULT_COSMOLOGY['h'] * 100
+        DEFAULT_COSMO_DICT['h'] * 100
     :type H0: float
     :param ns: Spectral index of the primordial power spectrum, defaults to
-        DEFAULT_COSMOLOGY['ns']
+        DEFAULT_COSMO_DICT['ns']
     :type ns: float
     :param As: Scalar mode amplitude of the primordial power spectrum, defaults
-        to DEFAULT_COSMOLOGY['As']
+        to DEFAULT_COSMO_DICT['As']
     :type As: float
-    :param z: Cosmological redshift, defaults to DEFAULT_COSMOLOGY['z']
+    :param z: Cosmological redshift, defaults to DEFAULT_COSMO_DICT['z']
     :type z: float
     :raises: ValueError
         This error is raised if the user explicitly specifies a value of
@@ -498,7 +499,7 @@ def add_sigma12(cosmology):
     
     :param cosmology: A fully filled-in Brenda Cosmology object. It is not
         recommended to manually create this object, but to start with a
-        cosmology dictionary (of the format used by DEFAULT_COSMOLOGY) and then
+        cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and then
         to run it through the conversion functions
         convert_fractional_densities, fill_in_defaults, and
         transcribe_cosmology, optionally verifying the validity of @cosmology
@@ -528,9 +529,18 @@ def add_sigma12(cosmology):
     # by the current best fit in the literature.
     
     # Extreme de-nesting required due to the format of the emu's.
-    sigma12_m0 = SIGMA12_TRAINER.p_emu.predict(base_normalized)[0][0]
+    unscaled_sigma12 = SIGMA12_TRAINER.p_emu.predict(base_normalized)[0][0]
     
-    new_cosmology.pars["sigma12"] = scale_sigma12(new_cosmology, sigma12_m0)
+    # In order to rescale the emulated sigma12 value, we'll need to calculate
+    # the LGF of the emulated cosmology: this is DEFAULT_BRENDA_COSMO, but with
+    # the three shape parameters specified (ns makes no difference but we
+    # include it here for completeness).
+    unscaled_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
+    for key in ["omega_b", "omega_cdm", "ns"]:
+        unscaled_cosmology.pars[key] = new_cosmology.pars[key]
+    
+    new_cosmology.pars["sigma12"] = scale_sigma12(new_cosmology,
+        unscaled_cosmology, unscaled_sigma12)
     
     if not within_prior(new_cosmology.pars["sigma12"], 3):
         raise ValueError("The given evolution parameters are invalid " + \
@@ -539,7 +549,7 @@ def add_sigma12(cosmology):
     
     return new_cosmology
     
-def scale_sigma12(cosmology, sigma12_m0):
+def scale_sigma12(new_cosmology, old_cosmology, old_sigma12):
     """
     Ideally, the user wouldn't use this function, it would automatically be
     called under the hood in the event that the user attempts to specify
@@ -564,18 +574,20 @@ def scale_sigma12(cosmology, sigma12_m0):
         An estimate of the sigma12 given the cosmological parameters associated
         with @cosmology.
     """
-    a = 1.0 / (1.0 + cosmology.pars["z"])
+    new_a = 1.0 / (1.0 + new_cosmology.pars["z"])
+    old_a = 1.0 / (1.0 + old_cosmology.pars["z"])
     
     #! Should I be concerned about this a0 parameter?
     # After some cursory tests, I found that it has very little impact.
     # De-nest
-    LGF = cosmology.growth_factor(a, a0=1e-3, solver='odeint')[0]
-    growth_ratio = LGF / DEFAULT_COSMOLOGY["LGF"]
+    new_LGF = new_cosmology.growth_factor(new_a, a0=1e-3, solver='odeint')[0]
+    old_LGF = old_cosmology.growth_factor(old_a, a0=1e-3, solver='odeint')[0]
+    growth_ratio = new_LGF / old_LGF
     
     # If the user specified no A_s value, the following factor automatically
     # disappears because, in this case, transcribe_cosmology sets
-    # cosmology["As"] = DEFAULT_COSMOLOGY["As"]
-    As_ratio = cosmology.pars["As"] / DEFAULT_COSMOLOGY["As"]
+    # cosmology["As"] = DEFAULT_COSMO_DICT["As"]
+    As_ratio = cosmology.pars["As"] / old_cosmology["As"]
     
     return sigma12_m0 * growth_ratio * np.sqrt(As_ratio)
 
@@ -650,8 +662,8 @@ def transcribe_cosmology(cosmo_dict):
         
     if "z" not in cosmo_dict:
         warnings.warn("No redshift given. Using " + \
-            str(DEFAULT_COSMOLOGY['z']))
-        conversions["z"] = DEFAULT_COSMOLOGY['z']
+            str(DEFAULT_COSMO_DICT['z']))
+        conversions["z"] = DEFAULT_COSMO_DICT['z']
 
     conversions["omega_m"] = conversions["omega_b"] + \
         conversions["omega_cdm"] + conversions["omega_nu"]
@@ -662,7 +674,7 @@ def transcribe_cosmology(cosmo_dict):
     if "omega_DE" in conversions and "omega_K" not in conversions:
         if "h" not in conversions:
             # use default value for h
-            conversions["omega_K"] = DEFAULT_COSMOLOGY["omega_K"]
+            conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
         else:
             conversions["omega_K"] = conversions["h"] ** 2 - \
                 conversions["omega_m"] - conversions["omega_DE"]
@@ -671,7 +683,7 @@ def transcribe_cosmology(cosmo_dict):
     if "omega_K" in conversions and "omega_DE" not in conversions:
         if "h" not in conversions:
             # use default value for h
-            conversions["h"] = DEFAULT_COSMOLOGY["h"]
+            conversions["h"] = DEFAULT_COSMO_DICT["h"]
         else:
             conversions["omega_DE"] = conversions["h"] ** 2 - \
                 conversions["omega_m"] - conversions["omega_K"]
@@ -679,17 +691,17 @@ def transcribe_cosmology(cosmo_dict):
     # Fill in default values for density parameters, because we need these to
     # compute h
     if "omega_K" not in conversions:
-        conversions["omega_K"] = DEFAULT_COSMOLOGY["omega_K"]
+        conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
 
     # If omDE was never given, there's no point in calculating h
     if "omega_DE" not in conversions:
-        conversions["h"] = DEFAULT_COSMOLOGY["h"]
-        conversions["omega_DE"] = DEFAULT_COSMOLOGY["omega_DE"]
+        conversions["h"] = DEFAULT_COSMO_DICT["h"]
+        conversions["omega_DE"] = DEFAULT_COSMO_DICT["omega_DE"]
 
     # If h wasn't given, compute it now that we have all of the physical
     # densities.
     if "h" not in conversions:
-        DEFAULT_COSMOLOGY["h"] = np.sqrt(conversions["omega_m"] + \
+        DEFAULT_COSMO_DICT["h"] = np.sqrt(conversions["omega_m"] + \
             cosmology["omega_DE"] + cosmology["omega_K"])
         
     for i in range(len(physical_keys)):
@@ -701,7 +713,7 @@ def transcribe_cosmology(cosmo_dict):
         
     # package it up for brenda
     if "As" not in conversions:
-        conversions["As"] = DEFAULT_COSMOLOGY["As"]
+        conversions["As"] = DEFAULT_COSMO_DICT["As"]
 
     conversions["Omega_m"] = conversions["omega_m"] / conversions["h"] ** 2
     conversions["de_model"] = "w0wa"
