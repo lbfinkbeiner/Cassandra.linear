@@ -551,12 +551,15 @@ def add_sigma12(cosmology):
     
 def scale_sigma12(new_cosmology, old_cosmology, old_sigma12):
     """
-    Ideally, the user wouldn't use this function, it would automatically be
-    called under the hood in the event that the user attempts to specify
-    evolution parameters in addition to the mandatory shape params.
+    Analytically solve for a new sigma12 value given a baseline (an old set of
+    cosmological parameters and an old sigma12 value) and a new set of
+    cosmological parameters.
+    
+    Ideally, the user wouldn't call this function explicitly. It would
+    automatically be called under the hood in the event that the user specifies
+    evolution parameters instead of explicitly giving sigma12.
 
-    Preferentially uses a specified 'h' to define omega_DE while leaving
-    omega_K as the default value.
+    
     
     @cosmology: Brenda Cosmology object
         This contains all of the cosmological parameters we'll need in order to
@@ -629,6 +632,13 @@ def transcribe_cosmology(cosmo_dict):
     quantities. For example, the code in this script primarily uses physical 
     densities, so fractional densities will be converted.
     
+    In the event that two of {"omega_K", "omega_DE" and "h"} are missing, 
+    default values are filled in until the rest of the missing parameters can
+    be inferred. Defaults are applied in this order:
+    1. omega_K
+    2. h
+    3. omega_DE
+    
     ### cosmo_dict should already have everything in place. This function does
         NOT fill in default values for essential parameters like omega_b
         (and indeed will raise an error if these are not provided),
@@ -668,36 +678,33 @@ def transcribe_cosmology(cosmo_dict):
     conversions["omega_m"] = conversions["omega_b"] + \
         conversions["omega_cdm"] + conversions["omega_nu"]
 
+    # Fill in default values for density parameters, because we need these to
+    # compute h.
+
     # The question is, when omega_K is not specified, should we immediately set
     # it to default, or immediately set h to default and back-calculate
     # curvature?
     if "omega_DE" in conversions and "omega_K" not in conversions:
         if "h" not in conversions:
-            # use default value for h
             conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
         else:
             conversions["omega_K"] = conversions["h"] ** 2 - \
                 conversions["omega_m"] - conversions["omega_DE"]
-
+    elif "omega_K" not in conversions: # omega_DE also not in conversions
+        conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
+        if "h" not in conversions:
+            conversions["h"] = DEFAULT_COSMO_DICT["h"]
+        conversions["omega_DE"] = conversions["h"] ** 2 - \
+            conversions["omega_m"] - conversions["omega_K"]
+            
     # Analogous block for dark energy
     if "omega_K" in conversions and "omega_DE" not in conversions:
         if "h" not in conversions:
-            # use default value for h
-            conversions["h"] = DEFAULT_COSMO_DICT["h"]
+            conversions["omega_DE"] = DEFAULT_COSMO_DICT["omega_DE"]
         else:
             conversions["omega_DE"] = conversions["h"] ** 2 - \
                 conversions["omega_m"] - conversions["omega_K"]
-
-    # Fill in default values for density parameters, because we need these to
-    # compute h
-    if "omega_K" not in conversions:
-        conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
-
-    # If omDE was never given, there's no point in calculating h
-    if "omega_DE" not in conversions:
-        conversions["h"] = DEFAULT_COSMO_DICT["h"]
-        conversions["omega_DE"] = DEFAULT_COSMO_DICT["omega_DE"]
-
+                
     # If h wasn't given, compute it now that we have all of the physical
     # densities.
     if "h" not in conversions:
