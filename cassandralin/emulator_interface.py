@@ -490,14 +490,6 @@ def cosmology_to_Pk(**kwargs):
 
 def add_sigma12(cosmology):
     """
-    Estimate the sigma12 value given the parameters specified by @cosmology.
-    This involves:
-    1. An emulator prediction for sigma12 based on omega_b, omega_cdm, and n_s,
-        where all other parameters are taken from the Planck best fit.
-    2. An analytical rescaling of this prediction based on the provided
-        evolution parameters (although, as part of this step, the values of
-        omega_b and omega_cdm are used again).
-    
     :param cosmology: A fully filled-in Brenda Cosmology object. It is not
         recommended to manually create this object, but to start with a
         cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
@@ -518,7 +510,7 @@ def add_sigma12(cosmology):
     """
     new_cosmology = cp.deepcopy(cosmology)
     
-    new_cosmology.pars["sigma12"] = scale_sigma12(new_cosmology)
+    new_cosmology.pars["sigma12"] = estimate_sigma12(new_cosmology)
     
     if not within_prior(new_cosmology.pars["sigma12"], 3):
         raise ValueError("The given evolution parameters are invalid " + \
@@ -528,6 +520,36 @@ def add_sigma12(cosmology):
     return new_cosmology
 
 def emulate_sigma12(cosmology):
+    """
+    Return the sigma12 emulator's prediction for a cosmology based on
+    DEFAULT_BRENDA_COSMO but using the values of omega_b, omega_cdm, and ns
+    taken from @cosmology. That means that the returned value is not the
+    sigma12 value associated with @cosmology.
+    
+    The emulator is necessary to capture intractable variation in the value of
+    sigma12 attributable to the three shape parameters above. Once we have this
+    emulated value, we can apply a numerical solver from Brendalib to deliver
+    the sigma12 value associated with @cosmology.
+    
+    :param cosmology: A fully filled-in Brenda Cosmology object whose evolution
+        parameters will be used to scale @old_sigma12. It is not
+        recommended to manually create this object, but to start with a
+        cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
+        then to run it through the conversion functions
+        convert_fractional_densities, fill_in_defaults, and
+        transcribe_cosmology, optionally verifying the validity of @cosmology
+        with error_check_cosmology. These functions facilitate the creation of
+        a fully-specified Brenda Cosmology object.
+    :type cosmology: instance of the Cosmology class from Brenda.
+    :return: An estimate of the sigma12 value associated with @cosmology.
+    :rtype: float.
+    warning:: The emulator only accepts the three cosmological parameters
+        omega_b, omega_cdm, and ns. It works by assuming a full set of
+        evolution parameters based on Aletheia model 0 (best fit to Planck
+        data). Therefore, this function should never be used on its own but
+        only as a helper function to estimate_sigma12, which will automatically
+        call it.
+    """
     input_vector = np.array([
         cosmology.pars["omega_b"],
         cosmology.pars["omega_cdm"],
@@ -543,10 +565,10 @@ def emulate_sigma12(cosmology):
     # Extreme de-nesting required due to the format of the emu's.
     return SIGMA12_TRAINER.p_emu.predict(input_normalized)[0][0]
     
-def scale_sigma12(cosmology):
+def estimate_sigma12(cosmology):
     """
-    Analytically solve for a new sigma12 value given a baseline (an emulated
-    sigma12 value) and a new set of cosmological parameters.
+    Analytically solve for a sigma12 value based on the evolution and shape
+    parameters described by @cosmology.
     
     Ideally, the user wouldn't call this function explicitly. It would
     automatically be called under the hood by cosmology_to_Pk in the event that
@@ -563,12 +585,8 @@ def scale_sigma12(cosmology):
         with error_check_cosmology. These functions facilitate the creation of
         a fully-specified Brenda Cosmology object.
     :type cosmology: instance of the Cosmology class from Brenda.
-    
-    :return:
-    
-    @scaled_sigma12: float
-        An estimate of the sigma12 given the cosmological parameters associated
-        with @cosmology.
+    :return: An estimate of the sigma12 value associated with @cosmology.
+    :rtype: float.
     """
     # In order to scale the sigma12 value, we'll need to calculate the LGF of
     # the emulated cosmology: this is DEFAULT_BRENDA_COSMO, but with the three
@@ -595,7 +613,7 @@ def scale_sigma12(cosmology):
     # cosmology["As"] = DEFAULT_COSMO_DICT["As"]
     As_ratio = cosmology.pars["As"] / emu_cosmology["As"]
     
-    return sigma12_m0 * growth_ratio * np.sqrt(As_ratio)
+    return old_sigma12 * growth_ratio * np.sqrt(As_ratio)
 
 
 def cosmology_to_emu_vec(cosmology):
