@@ -7,23 +7,23 @@ import warnings
 #!! Matteo's code, which still needs to be gracefully incorporated
 import cosmo_tools as brenda
 
-data_prefix = os.path.dirname(os.path.abspath(__file__)) + "/"
+DATA_PREFIX = os.path.dirname(os.path.abspath(__file__)) + "/"
 
 # Load the array of inverse scale values at which the emulator makes P(k)
 # predictions. This array should contain NumPy floats, so there's nothing to
 # unpickle.
-K_AXIS = np.load(data_prefix + "300k.npy")
+K_AXIS = np.load(DATA_PREFIX + "300k.npy")
 
 # Load the emulators that we need. The extension "trainer" refers to the
 # data structure which encapsulates the emu. The user may refer to
 # "train_emu.py" from the developer tools for implementation details, but these
 # details are not necessary for the usage of this script.
 # sigma12 emu
-sigma12_trainer = np.load(data_prefix + "emus/sigma12.cle", allow_pickle=True)
+SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12.cle", allow_pickle=True)
 # Massive-neutrino emu
-nu_trainer = np.load(data_prefix + "emus/Hnu2.cle", allow_pickle=True)
+NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu2.cle", allow_pickle=True)
 # Zero-mass neutrino emu
-zm_trainer = np.load(data_prefix + "emus/Hz1.cle", allow_pickle=True)
+ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz1.cle", allow_pickle=True)
 
 # Aletehia model 0 parameters, given by the best fit to the Planck data.
 DEFAULT_COSMOLOGY = {
@@ -45,7 +45,7 @@ DEFAULT_COSMOLOGY = {
 #! Should h be here? It's only an evolution parameter because of our particular
 # implementation of evolution mapping...
 EV_PAR_KEYS = ["omega_K", "Omega_K", "omega_DE", "Omega_DE", "w", "w0", 
-    "wa", "h"]
+    "wa", "h", "H0"]
 
 def prior_file_to_array(prior_name="COMET"):
     """
@@ -70,7 +70,7 @@ def prior_file_to_array(prior_name="COMET"):
     """
     param_ranges = None
 
-    prior_file = data_prefix + "priors/" + prior_name + ".txt"
+    prior_file = DATA_PREFIX + "priors/" + prior_name + ".txt"
     
     with open(prior_file, 'r') as file:
         lines = file.readlines()
@@ -132,14 +132,17 @@ def contains_ev_par(cosmo_dict):
     """
     for ev_par_key in EV_PAR_KEYS:
         if ev_par_key in cosmo_dict:
-            return True
-            
+            return 1
+       
+    if "z" in cosmo_dict:
+        return 2
+       
     # This is a special case: when the neutrinos are massless, As behaves as an
     # evolution parameter.
-    if "As" not in cosmo_dict and (cosmo_dict["omega_nu"] == 0 or \
-        cosmo_dict["Omega_nu"] ("omega_nu" not in 
+    if "As" not in cosmo_dict and neutrinos_massive(cosmo_dict):
+        return 3
             
-    return False
+    return 0
 
 doubly_defined_msg = "Do not simultaneously specify the physical and " + \
     "fractional density in {}. Specify one, and " + \
@@ -193,12 +196,22 @@ def error_check_cosmology(cosmo_dict):
     # will probably be able to extract most of them.
     
     # Make sure that the user EITHER specifies sigma12 or ev. param.s
-    if "sigma12" in cosmo_dict and contains_ev_par(cosmo_dict):
-        raise ValueError("sigma12 and at least one evolution parameter " + \
-            "were simultaneously specified. If the desired sigma12 is " + \
-            "already known, no evolution parameters should appear here." + \
-            "Remember that where neutrinos are massless, the scalar mode " + \
-            "amplitude behaves as an evolution parameter.")
+    evolution_code = contains_ev_par(cosmo_dict)
+    if "sigma12" in cosmo_dict and evolution_code(cosmo_dict):
+        if evolution_code == 1:
+            raise ValueError("The sigma12 and at least one evolution " + \
+                "parameter were simultaneously specified. If the desired " + \
+                "sigma12 is already known, no evolution parameters should " + \
+                "appear here.")
+        elif evolution_code == 2:
+            raise ValueError("The sigma12 and redshift were " + \
+                "simultaneously specified. Only one of the two should be " + \
+                "given, because redshift behaves as an evolution parameter.")
+        elif evolution_code == 3:
+            raise ValueError("The sigma12 and As were simulataneously " + \
+                "specified, but the neutrinos are massless in this " + \
+                "cosmology. In this case, As behaves as an evolution " + \
+                "parameter, so only one of the two can be specified.")
     
     # Make sure that no parameters are doubly-defined
     if "omega_b" in cosmo_dict and "Omega_b" in cosmo_dict:
@@ -428,7 +441,7 @@ def cosmology_to_Pk(**kwargs):
     # consider the theoretically optimal case: In this case, the user would
     # have already error-checked and neatly packaged their data. So, to time
     # the theoretically optimal case is to time JUST the call
-    # nu_trainer.delta_emu.predict(emu_vector)[0]
+    # NU_TRAINER.delta_emu.predict(emu_vector)[0]
 
     error_check_cosmology(kwargs)
     
@@ -447,11 +460,11 @@ def cosmology_to_Pk(**kwargs):
     
     # Again, we have to de-nest
     if len(emu_vector) == 6: # massive neutrinos
-        return nu_trainer.p_emu.predict(emu_vector)[0], \
-            nu_trainer.delta_emu.predict(emu_vector)[0]
+        return NU_TRAINER.p_emu.predict(emu_vector)[0], \
+            NU_TRAINER.delta_emu.predict(emu_vector)[0]
     elif len(emu_vector) == 4: # massless neutrinos
-        return zm_trainer.p_emu.predict(emu_vector)[0], \
-            zm_trainer.delta_emu.predict(emu_vector)[0]
+        return ZM_TRAINER.p_emu.predict(emu_vector)[0], \
+            ZM_TRAINER.delta_emu.predict(emu_vector)[0]
 
 
 def add_sigma12(cosmology):
@@ -474,13 +487,13 @@ def add_sigma12(cosmology):
         new_cosmology.pars["ns"]
     ])
     
-    base_normalized = sigma12_trainer.p_emu.convert_to_normalized_params(base)
+    base_normalized = SIGMA12_TRAINER.p_emu.convert_to_normalized_params(base)
 
     # First, emulate sigma12 as though the evolution parameters were all given
     # by the current best fit in the literature.
     
     # Extreme de-nesting required due to the format of the emu's.
-    sigma12_m0 = sigma12_trainer.p_emu.predict(base_normalized)[0][0]
+    sigma12_m0 = SIGMA12_TRAINER.p_emu.predict(base_normalized)[0][0]
     
     new_cosmology.pars["sigma12"] = scale_sigma12(new_cosmology, sigma12_m0)
     
@@ -549,14 +562,14 @@ def cosmology_to_emu_vec(cosmology):
     ])
     
     if cosmology.pars["omega_nu"] == 0:
-        return zm_trainer.p_emu.convert_to_normalized_params(base)
+        return ZM_TRAINER.p_emu.convert_to_normalized_params(base)
     else:
         extension = np.array([
             cosmology.pars["As"],
             cosmology.pars["omega_nu"]
         ])
         full_vector = np.append(base, extension)
-        return nu_trainer.p_emu.convert_to_normalized_params(full_vector)
+        return NU_TRAINER.p_emu.convert_to_normalized_params(full_vector)
 
 
 def transcribe_cosmology(cosmo_dict):
