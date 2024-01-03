@@ -109,6 +109,17 @@ def within_prior(value, index):
     return value >= PRIORS[index][0] and value <= PRIORS[index][1]
 
 def neutrinos_massive(cosmo_dict):
+    """
+    Ascertain whether the provided cosmology dictionary corresponds to a
+    cosmology with neutrinos of nonzero mass.
+    
+    :param cosmo_dict: Dictionary giving values of cosmological parameters,
+        where the parameters are referred to using the same keys as Brendalib
+        does in its Cosmology objects.
+    :type cosmo_dict: dict
+    :return: Whether cosmo_dict has massive neutrinos.
+    :rtype: bool
+    """
     if "omega_nu" in cosmo_dict:
         return cosmo_dict["omega_nu"] > 0
     elif "Omega_nu" in cosmo_dict:
