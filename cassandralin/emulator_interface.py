@@ -190,7 +190,8 @@ def error_check_cosmology(cosmo_dict):
         does in its Cosmology objects.
     :type cosmo_dict: dict
     :raises: ValueError
-        In any of the three cases specified at the beginning of this docstring.
+        A ValueError is raised in all of the three cases specified at the
+        beginning of this docstring.
     """
     # We may want to allow the user to turn off error checking if a lot of
     # predictions need to be tested all at once.... However, if we add such a
@@ -267,8 +268,8 @@ def convert_fractional_densities(cosmo_dict):
         does in its Cosmology objects.
     :type cosmo_dict: dict
     :raises: ValueError
-        If there exists a fractional density without an accompanying value of
-        h.
+        This error is raised if there exists a fractional density without an
+        accompanying value of h.
     :return: copy of @cosmo_dict with additional fields for the computed
         physical densities. If @cosmo_dict already contains all physical
         densities, or if no fractional densities were specified, this returned
@@ -323,8 +324,8 @@ def fill_in_defaults(cosmo_dict):
         does in its Cosmology objects.
     :type cosmo_dict: dict
     :raises: ValueError
-        If any of the required parameters falls outside the range defined by
-        the priors over which the emulators were trained.
+        This error is raised if any of the required parameters fall outside
+        the range defined by the priors over which the emulators were trained.
     :return: copy of @cosmo_dict with additional fields for the default
         parameters. If @cosmo_dict already contains all required parameters,
         this returned copy will be indistinguishable from @cosmo_dict.
@@ -480,7 +481,7 @@ def cosmology_to_Pk(**kwargs):
 
 def add_sigma12(cosmology):
     """
-    Estimate the sigma12 value given the parameters specified by cosmology.
+    Estimate the sigma12 value given the parameters specified by @cosmology.
     This involves:
     1. An emulator prediction for sigma12 based on omega_b, omega_cdm, and n_s,
         where all other parameters are taken from the Planck best fit.
@@ -488,7 +489,23 @@ def add_sigma12(cosmology):
         evolution parameters (although, as part of this step, the values of
         omega_b and omega_cdm are used again).
     
-    @cosmology should be a fully filled-in Brenda Cosmology object.
+    :param cosmology: A fully filled-in Brenda Cosmology object. It is not
+        recommended to manually create this object, but to start with a
+        cosmology dictionary (of the format used by DEFAULT_COSMOLOGY) and then
+        to run it through the conversion functions
+        convert_fractional_densities, fill_in_defaults, and
+        transcribe_cosmology, optionally verifying the validity of @cosmology
+        with error_check_cosmology. These functions facilitate the creation of
+        a fully-specified Brenda Cosmology object.
+    :type cosmology: instance of the Cosmology class from Brenda.
+    :raises: ValueError
+        This error is raised if the given evolution parameters are so extreme
+        that the analytically-rescaled sigma12 value falls outside of the prior
+        range.
+    :return: A copy of @cosmology where @cosmology.pars contains a new field,
+        "sigma12", an estimate of the sigma12 value associated with the
+        cosmology.
+    :rtype: instance of the Cosmology class from Brenda.
     """
     new_cosmology = cp.deepcopy(cosmology)
     
