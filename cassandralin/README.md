@@ -7,10 +7,9 @@ Make sure that you have at least 2.6 GB of free memory available!
 # Readme
 
 # Next steps:
-1. Complete all docstrings
-2. Get PEP conformity
-3. Add unit tests until 100% code coverage is achieved.
-4. A lot of the docstrings contain repeated verbose chunks, e.g. the
+1. Get PEP conformity
+2. Add unit tests until 100% code coverage is achieved.
+3. A lot of the docstrings contain repeated verbose chunks, e.g. the
     description of a fully filled-in Brenda cosmology. What is the recommended
     way of doing this?
 

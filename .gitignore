@@ -1,6 +1,7 @@
 # Data files that are necessary, but should not be part of commits
 *.npy
 *.cle
+cassandralin/emus/guide.txt
 
 # Random back-up silliness that I don't want
 *-checkpoint.ipynb

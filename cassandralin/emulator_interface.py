@@ -676,16 +676,15 @@ def transcribe_cosmology(cosmo_dict):
     2. h
     3. omega_DE
     
-    param cosmology: A fully filled-in Brenda Cosmology object whose evolution
-        parameters will be used to scale @old_sigma12. It is not
-        recommended to manually create this object, but to start with a
-        cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
-        then to run it through the conversion functions
+    :param cosmo_dict: dictionary giving values of cosmological parameters,
+        where the parameters are referred to using the same keys as Brendalib
+        does in its Cosmology objects. It is recommended to error check and
+        process this dictionary first, with fns like
         convert_fractional_densities, fill_in_defaults, and
-        transcribe_cosmology, optionally verifying the validity of @cosmology
-        with error_check_cosmology. These functions facilitate the creation of
-        a fully-specified Brenda Cosmology object.
-    :type cosmology: instance of the Cosmology class from Brenda.
+        error_check_cosmology.
+    :type cosmo_dict: dict
+    :return: A Brenda Cosmology object fully filled in except for sigma12. 
+    :rtype: instance of the Cosmology class from Brenda.
     warning:: This function does NOT fill in default values for essential
         parameters like omega_b (and indeed will raise an error if these are
         not provided). If @cosmo_dict still needs to be cleaned and processed,
