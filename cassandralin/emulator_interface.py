@@ -618,13 +618,26 @@ def estimate_sigma12(cosmology):
 
 def cosmology_to_emu_vec(cosmology):
     """
-    Turn an input cosmology into an input vector that the emulator understands
-    and from which it can predict a power spectrum. This includes
-    normalization, which is handled by the emulators themselves according to
-    the priors that they've stored.
+    Return a normalized vector of cosmological parameters. This vector is
+    formatted for use as an input for the P(k) emulators.
     
-    @cosmology: a Brenda Cosmology object which should already contain the
-        desired shape and evolution parameters.
+    Normalization is handled by the emulators themselves according to
+    the priors that they've stored, but the normalization code must
+    nevertheless be explicitly invoked.
+    
+    :param cosmology: A fully filled-in Brenda Cosmology object whose evolution
+        parameters will be used to scale @old_sigma12. It is not
+        recommended to manually create this object, but to start with a
+        cosmology dictionary (of the format used by DEFAULT_COSMO_DICT) and
+        then to run it through the conversion functions
+        convert_fractional_densities, fill_in_defaults, and
+        transcribe_cosmology, optionally verifying the validity of @cosmology
+        with error_check_cosmology. These functions facilitate the creation of
+        a fully-specified Brenda Cosmology object.
+    :type cosmology: instance of the Cosmology class from Brenda.
+    :return: A four- or six-dimensional vector containing normalized values for
+        the various cosmological parameters over which the emulators operate.
+    :rtype: numpy.ndarray of float64
     """
     base = np.array([
         cosmology.pars["omega_b"],
