@@ -7,6 +7,10 @@ Make sure that you have at least 2.6 GB of free memory available!
 # Readme
 
 # Next steps:
+1. Complete all docstrings
+2. Get PEP conformity
+3. Add unit tests until 100% code coverage is achieved.
+
 # get an uncertainty emulator for the massless-neutrino emu.
 
 >># get growth factor from brenda lib
@@ -16,19 +20,15 @@ unfortunately, it doesn't look like this is going to install with
     
     Windows version of brenda_lib please??
 
-# expand this as a repo where you plug in parameters and get
-    # a power spectrum
-# write paper
-# no wiggle, de-wiggle, and dimensionless power spectrum
+A. write paper
+B. no wiggle, de-wiggle, and dimensionless power spectrum
+C. Expand documentation of the development code!!
 
-# Expand documentation of the development code!!
-
-# Should we re-do the Hnu2 unc emu with a set of 5000 samples?
-# I used 7000 for the test run and now the emu object is huge...
-# In fact, maybe all of the emu's would benefit from smaller sizes,
+# Maybe all of the emu's would benefit from smaller sizes,
 # since we already seem to be in the regime of diminishing returns.
+# That would benefit users who don't want to download 2 GB of emulators...
 
-# We also need to figure out how to broaden these priors...
+# We also need to figure out how to broaden these priors even further...
 # Mess around with CLASS?
     # On ice until I can get back to a Linux machine.
     # Technically I have a VM on this laptop, but I don't want to
@@ -50,4 +50,5 @@ unfortunately, it doesn't look like this is going to install with
 # segfault instead of a complaint that the redshift is negative. A segfault is
 # significantly more difficult to address...
 
-# sigma12 non-linear sampling is probably a waste of time, but # we should come back to it in the future.
+# sigma12 non-linear sampling is probably a waste of time, but
+# we should come back to it in the future.

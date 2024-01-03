@@ -337,14 +337,16 @@ def fill_in_defaults(cosmo_dict):
 
     # Ditto with cold dark matter.
     if "omega_cdm" not in conversions:
-        warnings.warn(str.format(missing_shape_message, "omega_cdm"))
+        warnings.warn(str.format(missing_shape_message, "omega_cdm",
+            DEFAULT_COSMOLOGY["omega_cdm"]))
         conversions["omega_cdm"] = DEFAULT_COSMOLOGY["omega_cdm"]
     elif not within_prior(conversions["omega_cdm"], 1):
         raise ValueError(str.format(out_of_bounds_msg, "omega_cdm"))
 
     # Ditto with the spectral index.
     if "ns" not in conversions:
-        warnings.warn(str.format(missing_shape_message, "ns"))
+        warnings.warn(str.format(missing_shape_message, "ns",
+            DEFAULT_COSMOLOGY["ns"]))
         conversions["ns"] = DEFAULT_COSMOLOGY["ns"]
     elif not within_prior(conversions["ns"], 2):
         raise ValueError(str.format(out_of_bounds_msg, "ns"))
