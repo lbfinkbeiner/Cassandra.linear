@@ -19,7 +19,7 @@ K_AXIS = np.load(DATA_PREFIX + "300k.npy")
 # "train_emu.py" from the developer tools for implementation details, but these
 # details are not necessary for the usage of this script.
 # sigma12 emu
-SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v2.cle",
+SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v1.cle",
                           allow_pickle=True)
 # Massive-neutrino emu
 NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu2.cle", allow_pickle=True)
@@ -69,7 +69,7 @@ def transcribe_cosmology(cosmo_dict):
         convert_fractional_densities, fill_in_defaults, and
         error_check_cosmology.
     :type cosmo_dict: dict
-    :return: A Brenda Cosmology object fully filled in except for sigma12. 
+    :return: A Brenda Cosmology object fully filled in except for sigma12.
     :rtype: instance of the Cosmology class from Brenda.
     warning:: This function does NOT fill in default values for essential
         parameters like omega_b (and indeed will raise an error if these are
@@ -138,7 +138,8 @@ def transcribe_cosmology(cosmo_dict):
     # densities.
     if "h" not in conversions:
         DEFAULT_COSMO_DICT["h"] = np.sqrt(conversions["omega_m"] +
-                                          cosmology["omega_DE"] + cosmology["omega_K"])
+                                          cosmology["omega_DE"] +
+                                          cosmology["omega_K"])
 
     for i in range(len(PHYSICAL_KEYS)):
         phys_key = PHYSICAL_KEYS[i]
@@ -353,18 +354,20 @@ def error_check_cosmology(cosmo_dict):
     if "sigma12" in cosmo_dict and evolution_code(cosmo_dict):
         if evolution_code == 1:
             raise ValueError("The sigma12 and at least one evolution " +
-                             "parameter were simultaneously specified. If the desired " +
-                             "sigma12 is already known, no evolution parameters should " +
-                             "appear here.")
+                             "parameter were simultaneously specified. If " +
+                             "the desired sigma12 is already known, no " +
+                             "evolution parameters should appear here.")
         elif evolution_code == 2:
-            raise ValueError("The sigma12 and redshift were " +
-                             "simultaneously specified. Only one of the two should be " +
-                             "given, because redshift behaves as an evolution parameter.")
+            raise ValueError("The sigma12 and redshift were simultaneously " +
+                             "specified. Only one of the two should be " +
+                             "given, because redshift behaves as an " +
+                             "evolution parameter.")
         elif evolution_code == 3:
             raise ValueError("The sigma12 and As were simulataneously " +
-                             "specified, but the neutrinos are massless in this " +
-                             "cosmology. In this case, As behaves as an evolution " +
-                             "parameter, so only one of the two can be specified.")
+                             "specified, but the neutrinos are massless in " +
+                             "this cosmology. In this case, As behaves as " +
+                             "an evolution parameter, so only one of the " +
+                             "two may be specified.")
 
     # Make sure that no parameters are doubly-defined
     if "omega_b" in cosmo_dict and "Omega_b" in cosmo_dict:
@@ -377,18 +380,19 @@ def error_check_cosmology(cosmo_dict):
     if "omega_K" in cosmo_dict and "Omega_K" in cosmo_dict:
         raise ValueError(str.format(DOUBLY_DEFINED_MSG, "curvature"))
     if "h" in cosmo_dict and "H0" in cosmo_dict:
-        raise ValueError("Do not specify h and H0 simultaneously. " +
-                         "Specify one, and Cassandra-Linear will automatically handle " +
-                         "the other.")
+        raise ValueError("Do not specify h and H0 simultaneously. Specify " +
+                         "one, and Cassandra-Linear will automatically " +
+                         "handle the other.")
 
     # Make sure at most two of the three are defined: h, omega_curv, omega_DE
     if "h" in cosmo_dict or "H0" in cosmo_dict:
         if "Omega_DE" in cosmo_dict or "omega_DE" in cosmo_dict:
             if "Omega_K" in cosmo_dict or "omega_k" in cosmo_dict:
                 raise ValueError("Do not attempt to simultaneously set " +
-                                 "curvature, dark energy, and the Hubble parameter. " +
-                                 "Set two of the three, and Cassandra-Linear will " +
-                                 "automatically handle the third.")
+                                 "curvature, dark energy, and the Hubble " +
+                                 "parameter. Set two of the three, and " +
+                                 "Cassandra-Linear will automatically " +
+                                 "handle the third.")
 
 
 MISSING_H_MESSAGE = "A fractional density parameter was specified, but no " + \
@@ -458,7 +462,7 @@ def fill_in_defaults(cosmo_dict):
     The default values for all of these required parameters are recorded in the
     DEFAULT_COSMO_DICT dictionary at the top of this script. For example, if
     @cosmo_dict lacks an entry for omega_nu, neutrinos are assumed to be
-    massless and omega_nu is set to zero. 
+    massless and omega_nu is set to zero.
 
     :param cosmo_dict: dictionary giving values of cosmological parameters,
         where the parameters are referred to using the same keys as Brendalib
@@ -654,8 +658,8 @@ def add_sigma12(cosmology):
 
     if not within_prior(new_cosmology.pars["sigma12"], 3):
         raise ValueError("The given evolution parameters are invalid " +
-                         "because they result in a sigma12 value outside our priors. " +
-                         "Try a less extreme configuration.")
+                         "because they result in a sigma12 value outside " +
+                         "our priors. Try a less extreme configuration.")
 
     return new_cosmology
 

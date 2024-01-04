@@ -7,11 +7,12 @@ Make sure that you have at least 2.6 GB of free memory available!
 # Readme
 
 # Next steps:
-1. Get PEP conformity
-2. Add unit tests until 100% code coverage is achieved.
-3. A lot of the docstrings contain repeated verbose chunks, e.g. the
+0. Procure some speed tests for the paper.
+1. Add unit tests until 100% code coverage is achieved.
+2. A lot of the docstrings contain repeated verbose chunks, e.g. the
     description of a fully filled-in Brenda cosmology. What is the recommended
     way of doing this?
+3. Also obtain general feedback about the script, announce it to the LSS group.
 
 # get an uncertainty emulator for the massless-neutrino emu.
 
@@ -42,7 +43,7 @@ C. Expand documentation of the development code!!
     
 # 27 Dec 2023 @ 12:18 we've just discovered that the maximum k in CLASS
 # is roughly 1.1 / Mpc. That's kind of bad, but mostly fine since we can't
-# probe that small anyway... 
+# probe that small anyway...
 
 # 27 Dec 2023 @ 12:33 I've spent some time fiddling around but I cannot get
 # CLASS to accept negative redshifts. There may be a way, but I haven't found
@@ -54,3 +55,4 @@ C. Expand documentation of the development code!!
 
 # sigma12 non-linear sampling is probably a waste of time, but
 # we should come back to it in the future.
+
