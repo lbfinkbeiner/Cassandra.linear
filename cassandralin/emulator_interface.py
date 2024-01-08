@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.interpolate import interp1d
 
 import os
 import copy as cp
@@ -24,7 +25,7 @@ SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v1.cle",
 # Massive-neutrino emu
 NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu2.cle", allow_pickle=True)
 # Zero-mass neutrino emu
-ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz1.cle", allow_pickle=True)
+ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz2.cle", allow_pickle=True)
 
 FRACTIONAL_KEYS = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K",
                    "Omega_nu"]
@@ -529,7 +530,7 @@ def fill_in_defaults(cosmo_dict):
     return conversions
 
 
-def cosmology_to_Pk(**kwargs):
+def cosmology_to_Pk(cosmo_dict):
     """
     Predict the power spectrum based on cosmological parameters provided by the
     user. The returned power spectrum is evaluated at 300 values of the inverse
@@ -601,16 +602,20 @@ def cosmology_to_Pk(**kwargs):
         cosmology.
         Consider also including the GPy uncertainty in the output. Would that
         be helpful? Would that be more useful than the emulated uncertainty?
+        Consider lastly rewriting this docstring: these parameters no longer
+            appear as function parameters, but as possible entries in the
+            @cosmo_dict parameter... how do we distinguish between the two
+            cases? Should we?
     """
     # If you need to speed up the predictions, it would be worthwhile to
     # consider the theoretically optimal case: In this case, the user would
     # have already error-checked and neatly packaged their data. So, to time
     # the theoretically optimal case is to time JUST the call
-    # NU_TRAINER.delta_emu.predict(emu_vector)[0]
+    # NU_TRAINER.p_emu.predict(emu_vector)[0]
 
-    error_check_cosmology(kwargs)
+    error_check_cosmology(cosmo_dict)
 
-    cosmo_dict = convert_fractional_densities(kwargs)
+    cosmo_dict = convert_fractional_densities(cosmo_dict)
     cosmo_dict = fill_in_defaults(cosmo_dict)
 
     cosmology = transcribe_cosmology(cosmo_dict)
@@ -758,7 +763,7 @@ def estimate_sigma12(cosmology):
     # If the user specified no A_s value, the following factor automatically
     # disappears because, in this case, transcribe_cosmology sets
     # cosmology["As"] = DEFAULT_COSMO_DICT["As"]
-    As_ratio = cosmology.pars["As"] / emu_cosmology["As"]
+    As_ratio = cosmology.pars["As"] / emu_cosmology.pars["As"]
 
     return old_sigma12 * growth_ratio * np.sqrt(As_ratio)
 
@@ -802,3 +807,25 @@ def cosmology_to_emu_vec(cosmology):
         ])
         full_vector = np.append(base, extension)
         return NU_TRAINER.p_emu.convert_to_normalized_params(full_vector)
+        
+        
+# The only two functions the user should ever care about:
+# That means we can talk about these in the paper...
+
+def get_Pk_interpolator(cosmo_dict):
+    """
+    Wouldn't it be great if we could also interpolate at z? Maybe we should
+    make that a separate function.
+    """
+    # Return a function P(k)
+    P_array, unc_array = cosmology_to_Pk(cosmo_dict)
+    return interp1d(K_AXIS, P_array, kind='cubic'), \
+        interp1d(K_AXIS, unc_array, kind='cubic')   
+    
+
+def get_Delta2k_interpolator(cosmo_dict):
+    P_array, unc_array = cosmology_to_Pk(cosmo_dict)
+    Delta2_array = P_array * K_AXIS ** 3 / (2 * np.pi ** 2)
+    return interp1d(K_AXIS, Delta2_array, kind='cubic'), \
+        interp1d(K_AXIS, unc_array, kind='cubic')
+
