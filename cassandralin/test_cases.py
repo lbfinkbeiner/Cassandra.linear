@@ -1,6 +1,7 @@
 from cassL import camb_interface as ci
 import emulator_interface as ei
-
+import numpy as np
+import camb
 import time
 
 def Aletheia_to_cosmodict(index):
@@ -57,11 +58,12 @@ def time_CAMB_package():
     I'm almost certain that this case requires more compute time in CAMB.
     """
     start_time = time.time()
-    ci.evaluate_cosmology(ci.spceify_neutrino_mass(ci.cosm.iloc[4]))
-    return time.time() - start_time()
+    ci.evaluate_cosmology(ci.specify_neutrino_mass(ci.cosm.iloc[4], 0))
+    return time.time() - start_time
     
 def time_CAMB_simple():
-    cosmology = ci.cosm.iloc[4]
+    k_points = len(ei.K_AXIS)
+    cosmology = ci.specify_neutrino_mass(ci.cosm.iloc[4], 0)
     redshifts = np.array([0])
 
     if not isinstance(redshifts, list) and \
@@ -71,7 +73,7 @@ def time_CAMB_simple():
 
     pars = ci.input_cosmology(cosmology)
 
-    apply_universal_output_settings(pars)
+    ci.apply_universal_output_settings(pars)
 
     start_time = time.time()
 
@@ -101,6 +103,6 @@ def time_CAMB_simple():
     end = time.time()
     
     return smpt - start_time, grt - smpt, s12t - grt, end - s12t, \
-        end - start_time()
+        end - start_time
         
     
