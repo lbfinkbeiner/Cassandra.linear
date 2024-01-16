@@ -5,17 +5,18 @@ This is a memory-intensive application!
 Make sure that you have at least 2.6 GB of free memory available!
 
 # Next steps in the development of this project:
--1. Internal documentation?
 0. Procure some speed tests for the paper.
-1. Add unit tests until 100% code coverage is achieved.
-2. A lot of the docstrings contain repeated verbose chunks, e.g. the
+0. New priors for the massless-neutrino emulator.
+0. Test the whole pipeline from start to finish, preferably with only COMET
+    priors to get rid of extreme cosmologies.
+1. no wiggle and de-wiggle
+2. write paper
+3. Also obtain general feedback about the script, announce it to the LSS group.
+4. Add unit tests until 100% code coverage is achieved.
+5. A lot of the docstrings contain repeated verbose chunks, e.g. the
     description of a fully filled-in Brenda cosmology. What is the recommended
     way of doing this?
-3. Also obtain general feedback about the script, announce it to the LSS group.
-4. write paper
-5. no wiggle, de-wiggle, and dimensionless power spectrum
 6. Expand documentation of the development code!!
-
 
 Unfortunately, it doesn't look like the full Brendalib package will install on
 with Windows. We could purloin just the script in which we are interested

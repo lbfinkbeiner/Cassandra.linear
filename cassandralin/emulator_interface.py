@@ -6,7 +6,7 @@ import copy as cp
 import warnings
 
 #!! Matteo's code, which still needs to be gracefully incorporated
-import cosmo_tools as brenda
+from cassandralin import cosmo_tools as brenda
 
 DATA_PREFIX = os.path.dirname(os.path.abspath(__file__)) + "/"
 
@@ -102,7 +102,7 @@ def transcribe_cosmology(cosmo_dict):
 
     if "z" not in cosmo_dict:
         warnings.warn("No redshift given. Using " +
-                      str(DEFAULT_COSMO_DICT['z']))
+                      str(DEFAULT_COSMO_DICT['z']) + "...")
         conversions["z"] = DEFAULT_COSMO_DICT['z']
 
     conversions["omega_m"] = conversions["omega_b"] + \

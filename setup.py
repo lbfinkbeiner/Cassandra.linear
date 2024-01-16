@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='cassandralin',
     version='0.0.1',
-    packages=['cassandralin']
+    packages=['cassandralin'],
     package_data={'': [
         'priors/*',
         'emus/*',

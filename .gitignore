@@ -2,6 +2,7 @@
 *.npy
 *.cle
 cassandralin/emus/guide.txt
+*egg-info
 
 # Random back-up silliness that I don't want
 *-checkpoint.ipynb
