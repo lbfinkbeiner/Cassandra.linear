@@ -43,7 +43,9 @@ DEFAULT_COSMO_DICT = {
     'omega_nu': 0.,
     'h': 0.67,
     'z': 0.,
-    'sigma12': 0.82476394,
+    #'sigma12': 0.82476394,
+    'wa': 0.,
+    'w0': -1.
 }
 
 
@@ -68,14 +70,14 @@ def transcribe_cosmology(cosmo_dict):
         does in its Cosmology objects. It is recommended to error check and
         process this dictionary first, with fns like
         convert_fractional_densities, fill_in_defaults, and
-        error_check_cosmology.
+        check_redundancies.
     :type cosmo_dict: dict
     :return: A Brenda Cosmology object fully filled in except for sigma12.
     :rtype: instance of the Cosmology class from Brenda.
     warning:: This function does NOT fill in default values for essential
         parameters like omega_b (and indeed will raise an error if these are
         not provided). If @cosmo_dict still needs to be cleaned and processed,
-        use the functions error_check_cosmology, convert_fractional_densities,
+        use the functions check_redundancies, convert_fractional_densities,
         and fill_in_defaults.
     """
     # Instead of directly building a brenda Cosmology, we use this temporary
@@ -99,11 +101,6 @@ def transcribe_cosmology(cosmo_dict):
     for key, value in cosmo_dict.items():
         if key not in FRACTIONAL_KEYS:
             conversions[key] = value
-
-    if "z" not in cosmo_dict:
-        warnings.warn("No redshift given. Using " +
-                      str(DEFAULT_COSMO_DICT['z']) + "...")
-        conversions["z"] = DEFAULT_COSMO_DICT['z']
 
     conversions["omega_m"] = conversions["omega_b"] + \
         conversions["omega_cdm"] + conversions["omega_nu"]
@@ -305,7 +302,7 @@ OUT_OF_BOUNDS_MSG = "The given value for {} falls outside of the range " + \
     "over which the emulators were trained. Try a less extreme value."
 
 
-def error_check_cosmology(cosmo_dict):
+def check_redundancies(cosmo_dict):
     """
     Provide clear error messages for some, but not all, cases of ambiguity or
     inconsistency in the input parameters:
@@ -446,24 +443,27 @@ MISSING_SHAPE_MESSAGE = "The value of {} was not provided. This is an " + \
     "best-fit value ({})..."
 
 
+def check_priors(cosmo_dict):
+    emu_keys = ["omega_b", "omega_cdm", "ns", "sigma12", "omega_nu"]
+    for key in emu_keys:
+        param_index = emu_keys.index(key) if key != "omega_nu" else 5
+        
+        if key in cosmo_dict and \
+            not within_prior(cosmo_dict[key], param_index):
+            raise ValueError(str.format(OUT_OF_BOUNDS_MSG, key))
+
+    # special case: we're less strict about As if we only use it to rescale,
+    # which is the case when the neutrinos are massless.
+    if "As" in cosmo_dict and massive_neutrinos(cosmo_dict):
+        if not within_prior(conversions["As"], 4):
+            raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "As"))
+
 def fill_in_defaults(cosmo_dict):
     """
-    Take an input cosmology and fill in missing values with defaults until it
-    meets the requirements for emu prediction. The parameters considered
-    required (and therefore subject to filling in with default values) depend
-    on the neutrino treatment.
-
-    If this cosmology uses massless neutrinos, the following parameters are
-    required: omega_b, omega_cdm, and ns (technically, sigma12 is also
-    required, but instead of filling that in with a default value, we emulate
-    it and analytically rescale the prediction with the fn add_sigma12). If
-    this cosmology uses massive neutrinos, two parameters are required in
-    addition: As and omega_nu.
-
-    The default values for all of these required parameters are recorded in the
-    DEFAULT_COSMO_DICT dictionary at the top of this script. For example, if
-    @cosmo_dict lacks an entry for omega_nu, neutrinos are assumed to be
-    massless and omega_nu is set to zero.
+    Take an input cosmology and fill in missing values with defaults. All
+    default values are recorded in the DEFAULT_COSMO_DICT dictionary at the top
+    of this script. For example, if @cosmo_dict lacks an entry for omega_nu,
+    neutrinos are assumed to be massless and omega_nu is set to zero.
 
     :param cosmo_dict: dictionary giving values of cosmological parameters,
         where the parameters are referred to using the same keys as Brendalib
@@ -485,47 +485,29 @@ def fill_in_defaults(cosmo_dict):
         has forgotten to provide them.
     """
     conversions = cp.deepcopy(cosmo_dict)
+    
+    warning_keys = ["omega_b", "omega_cdm", "ns", "omega_nu"]
 
-    if "omega_b" not in conversions:
-        warnings.warn(str.format(MISSING_SHAPE_MESSAGE, "omega_b",
-                                 DEFAULT_COSMO_DICT["omega_b"]))
-        conversions["omega_b"] = DEFAULT_COSMO_DICT["omega_b"]
-    elif not within_prior(conversions["omega_b"], 0):
-        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "omega_b"))
-
-    # Ditto with cold dark matter.
-    if "omega_cdm" not in conversions:
-        warnings.warn(str.format(MISSING_SHAPE_MESSAGE, "omega_cdm",
-                                 DEFAULT_COSMO_DICT["omega_cdm"]))
-        conversions["omega_cdm"] = DEFAULT_COSMO_DICT["omega_cdm"]
-    elif not within_prior(conversions["omega_cdm"], 1):
-        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "omega_cdm"))
-
-    # Ditto with the spectral index.
-    if "ns" not in conversions:
-        warnings.warn(str.format(MISSING_SHAPE_MESSAGE, "ns",
-                                 DEFAULT_COSMO_DICT["ns"]))
-        conversions["ns"] = DEFAULT_COSMO_DICT["ns"]
-    elif not within_prior(conversions["ns"], 2):
-        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "ns"))
-
-    # Ditto with neutrinos.
-    if "omega_nu" not in conversions:
-        warnings.warn("The value of 'omega_nu' was not provided. Assuming " +
-                      "a value of " + str(DEFAULT_COSMO_DICT["omega_nu"]) +
-                      "...")
-        conversions["omega_nu"] = DEFAULT_COSMO_DICT["omega_nu"]
-    elif not within_prior(conversions["omega_nu"], 5):
-        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "omega_nu"))
-
+    for key in warning_keys:
+        param_index = warning_keys.index(key) if key != "omega_nu" else 5
+        if key not in conversions:
+            conversions[key] = DEFAULT_COSMO_DICT[key]
+            warnings.warn(str.format(MISSING_SHAPE_MESSAGE, key,
+                                      DEFAULT_COSMO_DICT[key]))
+    # Special cases: As and z
     if "As" not in conversions and neutrinos_massive(conversions):
         warnings.warn("The value of 'As' was not provided, even " +
                       "though massive neutrinos were requested. " +
                       "Setting to the Planck best fit value (" +
                       str(DEFAULT_COSMO_DICT["As"]) + ")...")
         conversions["As"] = DEFAULT_COSMO_DICT["As"]
-    elif "As" in conversions and not within_prior(conversions["As"], 4):
-        raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "As"))
+        
+    if "z" not in cosmo_dict:
+        warnings.warn("No redshift given. Using " +
+                      str(DEFAULT_COSMO_DICT['z']) + "...")
+        conversions["z"] = DEFAULT_COSMO_DICT['z']    
+        
+    # Now for the rest of the parameters: we don't need to 
 
     return conversions
 
@@ -613,9 +595,9 @@ def cosmology_to_Pk(cosmo_dict):
     # the theoretically optimal case is to time JUST the call
     # NU_TRAINER.p_emu.predict(emu_vector)[0]
 
-    error_check_cosmology(cosmo_dict)
-
+    check_redundancies(cosmo_dict)
     cosmo_dict = convert_fractional_densities(cosmo_dict)
+    check_priors(cosmo_dict)
     cosmo_dict = fill_in_defaults(cosmo_dict)
 
     cosmology = transcribe_cosmology(cosmo_dict)
@@ -645,7 +627,7 @@ def add_sigma12(cosmology):
         then to run it through the conversion functions
         convert_fractional_densities, fill_in_defaults, and
         transcribe_cosmology, optionally verifying the validity of @cosmology
-        with error_check_cosmology. These functions facilitate the creation of
+        with check_redundancies. These functions facilitate the creation of
         a fully-specified Brenda Cosmology object.
     :type cosmology: instance of the Cosmology class from Brenda.
     :raises: ValueError
@@ -688,7 +670,7 @@ def emulate_sigma12(cosmology):
         then to run it through the conversion functions
         convert_fractional_densities, fill_in_defaults, and
         transcribe_cosmology, optionally verifying the validity of @cosmology
-        with error_check_cosmology. These functions facilitate the creation of
+        with check_redundancies. These functions facilitate the creation of
         a fully-specified Brenda Cosmology object.
     :type cosmology: instance of the Cosmology class from Brenda.
     :return: An estimate of the sigma12 value associated with @cosmology.
@@ -734,7 +716,7 @@ def estimate_sigma12(cosmology):
         then to run it through the conversion functions
         convert_fractional_densities, fill_in_defaults, and
         transcribe_cosmology, optionally verifying the validity of @cosmology
-        with error_check_cosmology. These functions facilitate the creation of
+        with check_redundancies. These functions facilitate the creation of
         a fully-specified Brenda Cosmology object.
     :type cosmology: instance of the Cosmology class from Brenda.
     :return: An estimate of the sigma12 value associated with @cosmology.
@@ -784,7 +766,7 @@ def cosmology_to_emu_vec(cosmology):
         then to run it through the conversion functions
         convert_fractional_densities, fill_in_defaults, and
         transcribe_cosmology, optionally verifying the validity of @cosmology
-        with error_check_cosmology. These functions facilitate the creation of
+        with check_redundancies. These functions facilitate the creation of
         a fully-specified Brenda Cosmology object.
     :type cosmology: instance of the Cosmology class from Brenda.
     :return: A four- or six-dimensional vector containing normalized values for
