@@ -48,6 +48,11 @@ DEFAULT_COSMO_DICT = {
     'w0': -1.
 }
 
+def massive_neutrinos(cosmo_dict):
+    if "omega_nu" not in cosmo_dict and DEFAULT_COSMO_DICT["omega_nu"] == 0:
+        return False
+    else:
+        return cosmo_dict["omega_nu"] != 0
 
 def transcribe_cosmology(cosmo_dict):
     """
@@ -455,7 +460,7 @@ def check_priors(cosmo_dict):
     # special case: we're less strict about As if we only use it to rescale,
     # which is the case when the neutrinos are massless.
     if "As" in cosmo_dict and massive_neutrinos(cosmo_dict):
-        if not within_prior(conversions["As"], 4):
+        if not within_prior(cosmo_dict["As"], 4):
             raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "As"))
 
 def fill_in_defaults(cosmo_dict):

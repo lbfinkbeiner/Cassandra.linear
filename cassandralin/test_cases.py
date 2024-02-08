@@ -5,17 +5,23 @@ import camb
 import time
 
 def Aletheia_to_cosmodict(index):
-    c = ci.cosm.iloc[index]
+    return ci_to_cosmodict(ci.cosm.iloc[index])
+    
+
+def ci_to_cosmodict(c):
     return {
         "omega_b": c["ombh2"],
         "omega_cdm": c["omch2"],
         "ns": c["n_s"],
         "As": c["A_s"],
+        "omega_nu": c["omnuh2"],
         "Omega_K": c["OmK"],
         "h": c["h"],
         "w0": c["w0"],
         "wa": c["wa"],
+        "z": c["z"]
     }
+
 
 def time_simple():
     cosmo_dict = Aletheia_to_cosmodict(4)
