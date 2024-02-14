@@ -42,7 +42,7 @@ DEFAULT_COSMO_DICT = {
     'omega_DE': 0.305888,
     'omega_nu': 0.,
     'h': 0.67,
-    'z': 0.,
+    'z': 1.,
     #'sigma12': 0.82476394,
     'wa': 0.,
     'w0': -1.
