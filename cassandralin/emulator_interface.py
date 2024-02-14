@@ -20,10 +20,10 @@ K_AXIS = np.load(DATA_PREFIX + "300k.npy")
 # "train_emu.py" from the developer tools for implementation details, but these
 # details are not necessary for the usage of this script.
 # sigma12 emu
-SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v1.cle",
+SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v3.cle",
                           allow_pickle=True)
 # Massive-neutrino emu
-NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu2.cle", allow_pickle=True)
+NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu4c_wiggler.cle", allow_pickle=True)
 # Zero-mass neutrino emu
 ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz2.cle", allow_pickle=True)
 
@@ -229,7 +229,7 @@ def prior_file_to_array(prior_name="COMET"):
     return param_ranges
 
 
-PRIORS = prior_file_to_array("COMET")
+PRIORS = prior_file_to_array("COMET_PLUS")
 
 
 def within_prior(value, index):

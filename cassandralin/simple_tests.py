@@ -7,15 +7,6 @@ import numpy as np
 
 m0 = ci.full_cosm.iloc[0]
 
-def alli_to_ei(alli_cosm, z):
-    conversions = ei.transcribe_cosmology(omB=alli_cosm["ombh2"],
-                                       omC=alli_cosm["omch2"],
-                                       n_s=alli_cosm["n_s"],
-                                       A_s=alli_cosm["A_s"],
-                                       OmK=alli_cosm["OmK"],
-                                       h=alli_cosm["h"], z=z)
-    return conversions
-
 
 def it(conversions):
     omM = conversions["omB"] + conversions["omC"]

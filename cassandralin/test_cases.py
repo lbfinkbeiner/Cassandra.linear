@@ -1,4 +1,6 @@
 from cassL import camb_interface as ci
+from cassL import generate_emu_data as ged
+
 import emulator_interface as ei
 import numpy as np
 import camb
@@ -21,6 +23,27 @@ def ci_to_cosmodict(c):
         "wa": c["wa"],
         "z": c["z"]
     }
+
+
+def easy_comparisons(lhs, true, priors, k_axis):
+    errors = np.empty(true.shape)
+    predictions = np.empty(true.shape)
+
+    for i in range(len(true)):
+        print(i)
+        this_denormalized_row = ged.denormalize_row(lhs[i], priors)
+        this_cosmology = ged.build_cosmology(this_denormalized_row)
+        this_cosmodict = ci_to_cosmodict(this_cosmology)
+        
+        try:
+            this_intrpr, this_unc_intrpr = ei.get_Pk_interpolator(this_cosmodict)
+            this_prediction = this_intrpr(k_axis)
+            predictions[i] = this_prediction
+            errors[i] = this_prediction - true[i]
+        except ValueError:
+            errors[i][:] = np.nan
+
+    return errors, predictions
 
 
 def time_simple():
