@@ -229,18 +229,27 @@ def prior_file_to_array(prior_name="COMET"):
     return param_ranges
 
 
-PRIORS = prior_file_to_array("COMET_PLUS")
+PRIORS_NU = prior_file_to_array("COMET_PLUS")
+PRIORS_NONU = prior_file_to_array("MASSLESS")
 
+def get_priors(cosmo_dict):
+    if neutrinos_massive(cosmo_dict):
+        return PRIORS_NU
+    else:
+        return PRIORS_NONU
 
-def within_prior(value, index):
+def within_prior(cosmo_dict, key, par_index):
     """
     Check if a given value falls within the associated priors.
 
-    :param value: The parameter value to be tested
-    :type value: float
-    :param index: The index of PRIORS (the array of priors over which the
-        emulator was trained) which corresponds to that cosmological parameter.
-    :type index: int
+    :param cosmo_dict: The cosmology to be tested
+    :type cosmo_dict: dict
+    :param key: The key corresponding to the parameter in the cosmology
+        to be tested.
+    :type key: str
+    :param par_index: The index of the priors which corresponds to that
+        cosmological parameter.
+    :type par_index: int
     :return: Wether @value is within the associated prior range for the
         parameter specified by @index.
     :rtype: bool
@@ -248,7 +257,10 @@ def within_prior(value, index):
     For example, if @value were a configuration of the spectral index. We would
         call within_prior(value, 2).
     """
-    return value >= PRIORS[index][0] and value <= PRIORS[index][1]
+    priors = get_priors(cosmo_dict)
+    value = cosmo_dict[key]
+    prior = priors[par_index]
+    return value >= prior[0] and value <= prior[1]
 
 
 def neutrinos_massive(cosmo_dict):
@@ -447,20 +459,19 @@ MISSING_SHAPE_MESSAGE = "The value of {} was not provided. This is an " + \
     "emulated shape parameter and is required. Setting to the Planck " + \
     "best-fit value ({})..."
 
-
 def check_priors(cosmo_dict):
     emu_keys = ["omega_b", "omega_cdm", "ns", "sigma12", "omega_nu"]
     for key in emu_keys:
         param_index = emu_keys.index(key) if key != "omega_nu" else 5
         
         if key in cosmo_dict and \
-            not within_prior(cosmo_dict[key], param_index):
+            not within_prior(cosmo_dict, key, param_index):
             raise ValueError(str.format(OUT_OF_BOUNDS_MSG, key))
 
     # special case: we're less strict about As if we only use it to rescale,
     # which is the case when the neutrinos are massless.
     if "As" in cosmo_dict and massive_neutrinos(cosmo_dict):
-        if not within_prior(cosmo_dict["As"], 4):
+        if not within_prior(cosmo_dict, "As", 4):
             raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "As"))
 
 def fill_in_defaults(cosmo_dict):
@@ -610,7 +621,7 @@ def cosmology_to_Pk(cosmo_dict):
     if "sigma12" not in cosmology.pars:
         cosmology = add_sigma12(cosmology)
     else:
-        if not within_prior(cosmology.pars["sigma12"], 3):
+        if not within_prior(cosmology.pars, "sigma12", 3):
             raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "sigma12"))
 
     emu_vector = cosmology_to_emu_vec(cosmology)
@@ -648,7 +659,7 @@ def add_sigma12(cosmology):
 
     new_cosmology.pars["sigma12"] = estimate_sigma12(new_cosmology)
 
-    if not within_prior(new_cosmology.pars["sigma12"], 3):
+    if not within_prior(new_cosmology.pars, "sigma12", 3):
         raise ValueError("The given evolution parameters are invalid " +
                          "because they result in a sigma12 value outside " +
                          "our priors. Try a less extreme configuration.")
