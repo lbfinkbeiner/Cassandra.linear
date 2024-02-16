@@ -20,7 +20,7 @@ K_AXIS = np.load(DATA_PREFIX + "300k.npy")
 # "train_emu.py" from the developer tools for implementation details, but these
 # details are not necessary for the usage of this script.
 # sigma12 emu
-SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v3.cle",
+SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v99.cle",
                           allow_pickle=True)
 # Massive-neutrino emu
 NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu4c_wiggler.cle", allow_pickle=True)
@@ -613,6 +613,7 @@ def cosmology_to_Pk(cosmo_dict):
         if not within_prior(cosmology.pars["sigma12"], 3):
             raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "sigma12"))
 
+    print(cosmology.pars)
     emu_vector = cosmology_to_emu_vec(cosmology)
 
     # Again, we have to de-nest
@@ -689,7 +690,7 @@ def emulate_sigma12(cosmology):
     """
     input_vector = np.array([
         cosmology.pars["omega_b"],
-        cosmology.pars["omega_cdm"],
+        cosmology.pars["omega_cdm"] + cosmology.pars["omega_nu"],
         cosmology.pars["ns"]
     ])
 
@@ -731,18 +732,21 @@ def estimate_sigma12(cosmology):
     # the emulated cosmology: this is DEFAULT_BRENDA_COSMO, but with the three
     # shape parameters specified (ns makes no difference but we include it here
     # for completeness).
-    old_sigma12 = emulate_sigma12(cosmology)
+    MEMNeC = cp.deepcopy(cosmology)
+    MEMNeC["omega_cdm"] += cosmology.pars["omega_nu"]
+    MEMNeC["omega_nu"] = 0
+
     emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
     for key in ["omega_b", "omega_cdm", "ns"]:
-        emu_cosmology.pars[key] = cosmology.pars[key]
+        emu_cosmology.pars[key] = MEMNeC.pars[key]
 
-    new_a = 1.0 / (1.0 + cosmology.pars["z"])
+    new_a = 1.0 / (1.0 + MEMNeC.pars["z"])
     old_a = 1.0 / (1.0 + emu_cosmology.pars["z"])
 
     #! Should I be concerned about this a0 parameter?
     # After some cursory tests, I found that it has very little impact.
     # De-nest
-    new_LGF = cosmology.growth_factor(new_a, a0=1e-3, solver='odeint')[0]
+    new_LGF = MEMNeC.growth_factor(new_a, a0=1e-3, solver='odeint')[0]
     old_LGF = emu_cosmology.growth_factor(old_a, a0=1e-3,
                                           solver='odeint')[0]
     growth_ratio = new_LGF / old_LGF
@@ -750,7 +754,7 @@ def estimate_sigma12(cosmology):
     # If the user specified no A_s value, the following factor automatically
     # disappears because, in this case, transcribe_cosmology sets
     # cosmology["As"] = DEFAULT_COSMO_DICT["As"]
-    As_ratio = cosmology.pars["As"] / emu_cosmology.pars["As"]
+    As_ratio = MEMNeC.pars["As"] / emu_cosmology.pars["As"]
 
     return old_sigma12 * growth_ratio * np.sqrt(As_ratio)
 
