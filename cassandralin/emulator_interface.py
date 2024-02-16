@@ -613,7 +613,6 @@ def cosmology_to_Pk(cosmo_dict):
         if not within_prior(cosmology.pars["sigma12"], 3):
             raise ValueError(str.format(OUT_OF_BOUNDS_MSG, "sigma12"))
 
-    print(cosmology.pars)
     emu_vector = cosmology_to_emu_vec(cosmology)
 
     # Again, we have to de-nest
@@ -733,12 +732,14 @@ def estimate_sigma12(cosmology):
     # shape parameters specified (ns makes no difference but we include it here
     # for completeness).
     MEMNeC = cp.deepcopy(cosmology)
-    MEMNeC["omega_cdm"] += cosmology.pars["omega_nu"]
-    MEMNeC["omega_nu"] = 0
+    MEMNeC.pars["omega_cdm"] += cosmology.pars["omega_nu"]
+    MEMNeC.pars["omega_nu"] = 0
 
     emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
     for key in ["omega_b", "omega_cdm", "ns"]:
         emu_cosmology.pars[key] = MEMNeC.pars[key]
+
+    old_sigma12 = emulate_sigma12(emu_cosmology)
 
     new_a = 1.0 / (1.0 + MEMNeC.pars["z"])
     old_a = 1.0 / (1.0 + emu_cosmology.pars["z"])
@@ -747,8 +748,7 @@ def estimate_sigma12(cosmology):
     # After some cursory tests, I found that it has very little impact.
     # De-nest
     new_LGF = MEMNeC.growth_factor(new_a, a0=1e-3, solver='odeint')[0]
-    old_LGF = emu_cosmology.growth_factor(old_a, a0=1e-3,
-                                          solver='odeint')[0]
+    old_LGF = emu_cosmology.growth_factor(old_a, a0=1e-3, solver='odeint')[0]
     growth_ratio = new_LGF / old_LGF
 
     # If the user specified no A_s value, the following factor automatically
