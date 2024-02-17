@@ -29,7 +29,7 @@ ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz2.cle", allow_pickle=True)
 
 FRACTIONAL_KEYS = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K",
                    "Omega_nu"]
-PHYSICAL_KEYS = ["omega_b", "omega_cdm", "omega_DE", "omega_K",
+PHYSICAL_KEYS = ["omega_b", "omega_cdm", "omega_de", "omega_K",
                  "omega_nu"]
 
 # Aletehia model 0 parameters, given by the best fit to the Planck data.
@@ -39,7 +39,7 @@ DEFAULT_COSMO_DICT = {
     'ns': 0.96,
     'As': 2.127238e-9,
     'omega_K': 0.,
-    'omega_DE': 0.305888,
+    'omega_de': 0.305888,
     'omega_nu': 0.,
     'h': 0.67,
     'z': 1.,
@@ -63,12 +63,12 @@ def transcribe_cosmology(cosmo_dict):
 
     As part of this transcription, sometimes default values are added (beyond
     what fill_in_defaults already handles). In the event that two of
-    {"omega_K", "omega_DE" and "h"} are missing, default values are filled in
+    {"omega_K", "omega_de" and "h"} are missing, default values are filled in
     until the rest of the missing parameters can be inferred. Defaults are
     applied in this order:
     1. omega_K
     2. h
-    3. omega_DE
+    3. omega_de
 
     :param cosmo_dict: dictionary giving values of cosmological parameters,
         where the parameters are referred to using the same keys as Brendalib
@@ -116,32 +116,32 @@ def transcribe_cosmology(cosmo_dict):
     # The question is, when omega_K is not specified, should we immediately set
     # it to default, or immediately set h to default and back-calculate
     # curvature?
-    if "omega_DE" in conversions and "omega_K" not in conversions:
+    if "omega_de" in conversions and "omega_K" not in conversions:
         if "h" not in conversions:
             conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
         else:
             conversions["omega_K"] = conversions["h"] ** 2 - \
-                conversions["omega_m"] - conversions["omega_DE"]
-    elif "omega_K" not in conversions:  # omega_DE also not in conversions
+                conversions["omega_m"] - conversions["omega_de"]
+    elif "omega_K" not in conversions:  # omega_de also not in conversions
         conversions["omega_K"] = DEFAULT_COSMO_DICT["omega_K"]
         if "h" not in conversions:
             conversions["h"] = DEFAULT_COSMO_DICT["h"]
-        conversions["omega_DE"] = conversions["h"] ** 2 - \
+        conversions["omega_de"] = conversions["h"] ** 2 - \
             conversions["omega_m"] - conversions["omega_K"]
 
     # Analogous block for dark energy
-    if "omega_K" in conversions and "omega_DE" not in conversions:
+    if "omega_K" in conversions and "omega_de" not in conversions:
         if "h" not in conversions:
-            conversions["omega_DE"] = DEFAULT_COSMO_DICT["omega_DE"]
+            conversions["omega_de"] = DEFAULT_COSMO_DICT["omega_de"]
         else:
-            conversions["omega_DE"] = conversions["h"] ** 2 - \
+            conversions["omega_de"] = conversions["h"] ** 2 - \
                 conversions["omega_m"] - conversions["omega_K"]
 
     # If h wasn't given, compute it now that we have all of the physical
     # densities.
     if "h" not in conversions:
         DEFAULT_COSMO_DICT["h"] = np.sqrt(conversions["omega_m"] +
-                                          cosmology["omega_DE"] +
+                                          cosmology["omega_de"] +
                                           cosmology["omega_K"])
 
     for i in range(len(PHYSICAL_KEYS)):
@@ -183,7 +183,7 @@ DEFAULT_BRENDA_COSMO = transcribe_cosmology(DEFAULT_COSMO_DICT)
 # the dictionary had better not include a sigma12 value...
 #! Should h be here? It's only an evolution parameter because of our particular
 # implementation of evolution mapping...
-EV_PAR_KEYS = ["omega_K", "Omega_K", "omega_DE", "Omega_DE", "w", "w0",
+EV_PAR_KEYS = ["omega_K", "Omega_K", "omega_de", "Omega_DE", "w", "w0",
                "wa", "h", "H0"]
 
 
@@ -390,7 +390,7 @@ def check_redundancies(cosmo_dict):
     if "omega_cdm" in cosmo_dict and "Omega_cdm" in cosmo_dict:
         raise ValueError(str.format(DOUBLY_DEFINED_MSG,
                                     "cold dark matter"))
-    if "omega_DE" in cosmo_dict and "Omega_DE" in cosmo_dict:
+    if "omega_de" in cosmo_dict and "Omega_DE" in cosmo_dict:
         raise ValueError(str.format(DOUBLY_DEFINED_MSG, "dark energy"))
     if "omega_K" in cosmo_dict and "Omega_K" in cosmo_dict:
         raise ValueError(str.format(DOUBLY_DEFINED_MSG, "curvature"))
@@ -399,9 +399,9 @@ def check_redundancies(cosmo_dict):
                          "one, and Cassandra-Linear will automatically " +
                          "handle the other.")
 
-    # Make sure at most two of the three are defined: h, omega_curv, omega_DE
+    # Make sure at most two of the three are defined: h, omega_curv, omega_de
     if "h" in cosmo_dict or "H0" in cosmo_dict:
-        if "Omega_DE" in cosmo_dict or "omega_DE" in cosmo_dict:
+        if "Omega_DE" in cosmo_dict or "omega_de" in cosmo_dict:
             if "Omega_K" in cosmo_dict or "omega_k" in cosmo_dict:
                 raise ValueError("Do not attempt to simultaneously set " +
                                  "curvature, dark energy, and the Hubble " +
@@ -555,11 +555,11 @@ def cosmology_to_Pk(cosmo_dict):
     :param Omega_cdm: Fractional density in cold dark matter, defaults to
         DEFAULT_COSMO_DICT['omega_cdm'] / DEFAULT_COSMO_DICT['h'] ** 2
     :type Omega_cdm: float
-    :param omega_DE: Physical density in dark energy, defaults to
-        DEFAULT_COSMO_DICT['omega_DE']
-    :type omega_DE: float
+    :param omega_de: Physical density in dark energy, defaults to
+        DEFAULT_COSMO_DICT['omega_de']
+    :type omega_de: float
     :param Omega_DE: Fractional density in dark energy, defaults to
-        DEFAULT_COSMO_DICT['omega_DE'] / DEFAULT_COSMO_DICT['h'] ** 2
+        DEFAULT_COSMO_DICT['omega_de'] / DEFAULT_COSMO_DICT['h'] ** 2
     :type Omega_DE: float
     :param omega_nu: Physical density in neutrinos, defaults to
         DEFAULT_COSMO_DICT['omega_nu']
@@ -809,8 +809,8 @@ def cosmology_to_emu_vec(cosmology):
         ])
         full_vector = np.append(base, extension)
         return NU_TRAINER.p_emu.convert_to_normalized_params(full_vector)
-        
-        
+
+
 # The only two functions the user should ever care about:
 # That means we can talk about these in the paper...
 
