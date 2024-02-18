@@ -53,9 +53,13 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
         this_brendac = ei.transcribe_cosmology(this_cosmodict)
 
         try:
-            true.append(ci.evaluate_sigma12(this_cosmology))
-            predictions.append(ei.add_sigma12(this_brendac).pars['sigma12'])
-            perc_errors.append(utils.percent_error(true[i], predictions[i]))
+            this_true = ci.evaluate_sigma12(this_cosmology)[0]
+            this_pred = ei.add_sigma12(this_brendac).pars['sigma12']
+            this_percerr = utils.percent_error(this_true, this_pred)
+
+            true.append(this_true)
+            predictions.append(this_pred)
+            perc_errors.append(this_percerr)
         except ValueError:
             true.append(np.nan)
             predictions.append(np.nan)
