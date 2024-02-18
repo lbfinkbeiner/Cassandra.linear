@@ -104,8 +104,7 @@ def transcribe_cosmology(cosmo_dict):
     # Nothing else requires such conversions, so add the remaining values
     # directly to the working dictionary.
     for key, value in cosmo_dict.items():
-        if key not in FRACTIONAL_KEYS:
-            conversions[key] = value
+        conversions[key] = value
 
     conversions["omega_m"] = conversions["omega_b"] + \
         conversions["omega_cdm"] + conversions["omega_nu"]
@@ -160,9 +159,6 @@ def transcribe_cosmology(cosmo_dict):
     # We'll probably want to change this at some point, especially to allow
     # stuff like the infamous Aletheia model 8.
     conversions["Om_EdE"] = False
-    # Brenda lib doesn't distinguish nu from CDM
-    conversions["omega_cdm"] += conversions["omega_nu"]
-    conversions["Omega_cdm"] += conversions["Omega_nu"]
     conversions["sigma8"] = None
 
     cosmology = brenda.Cosmology()
@@ -745,10 +741,20 @@ def estimate_sigma12(cosmology):
     MEMNeC = cp.deepcopy(cosmology)
     MEMNeC.pars["omega_cdm"] += cosmology.pars["omega_nu"]
     MEMNeC.pars["omega_nu"] = 0
+    # Recalculate fractionals, which Brenda uses. The value of h did not change
+    MEMNeC.pars["Omega_cdm"] = MEMNeC.pars["omega_cdm"] / MEMNeC.pars["h"] ** 2
+    # Strictly speaking, this line is not necessary for Brenda. But it keeps
+    # the logic straightforward...
+    MEMNeC.pars["Omega_nu"] = MEMNeC.pars["omega_nu"] / MEMNeC.pars["h"] ** 2
 
     emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
     for key in ["omega_b", "omega_cdm", "ns"]:
         emu_cosmology.pars[key] = MEMNeC.pars[key]
+    # Recalculate fractionals, which Brenda uses. The value of h did not change
+    emu_cosmology.pars["Omega_b"] = emu_cosmology.pars["omega_b"] / \
+        emu_cosmology.pars["h"] ** 2
+    emu_cosmology.pars["Omega_cdm"] = emu_cosmology.pars["omega_cdm"] / \
+        emu_cosmollogy.pars["h"] ** 2
 
     old_sigma12 = emulate_sigma12(emu_cosmology)
 
