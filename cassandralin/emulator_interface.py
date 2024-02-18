@@ -754,7 +754,7 @@ def estimate_sigma12(cosmology):
     emu_cosmology.pars["Omega_b"] = emu_cosmology.pars["omega_b"] / \
         emu_cosmology.pars["h"] ** 2
     emu_cosmology.pars["Omega_cdm"] = emu_cosmology.pars["omega_cdm"] / \
-        emu_cosmollogy.pars["h"] ** 2
+        emu_cosmology.pars["h"] ** 2
 
     old_sigma12 = emulate_sigma12(emu_cosmology)
 

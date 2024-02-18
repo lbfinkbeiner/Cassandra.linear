@@ -49,11 +49,16 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
         print(i)
         this_denormalized_row = ged.denormalize_row(lhs[i], priors)
         this_cosmology = ged.build_cosmology(this_denormalized_row)
-        this_cosmodict = ci_to_cosmodict(this_cosmology)
-        this_brendac = ei.transcribe_cosmology(this_cosmodict)
+        print(this_cosmology)
+        cd = ci_to_cosmodict(this_cosmology)
+        cd = ei.convert_fractional_densities(cd)
+        cd = ei.fill_in_defaults(cd)
+        this_brendac = ei.transcribe_cosmology(cd)
+        print(this_brendac.pars)
 
         try:
-            this_true = ci.evaluate_sigma12(this_cosmology)[0]
+            this_true = ci.evaluate_sigma12(this_cosmology, 
+                    redshifts=[this_cosmology["z"]])[0]
             this_pred = ei.add_sigma12(this_brendac).pars['sigma12']
             this_percerr = utils.percent_error(this_true, this_pred)
 
