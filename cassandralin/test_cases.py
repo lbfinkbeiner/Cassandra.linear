@@ -1,5 +1,6 @@
 from cassL import camb_interface as ci
 from cassL import generate_emu_data as ged
+from cassL import utils
 
 import emulator_interface as ei
 import numpy as np
@@ -11,7 +12,7 @@ def Aletheia_to_cosmodict(index):
     
 
 def ci_to_cosmodict(c):
-    return {
+    base = {
         "omega_b": c["ombh2"],
         "omega_cdm": c["omch2"],
         "ns": c["n_s"],
@@ -21,8 +22,46 @@ def ci_to_cosmodict(c):
         "h": c["h"],
         "w0": c["w0"],
         "wa": c["wa"],
-        "z": c["z"]
     }
+    if "z" in c:
+        base["z"] = c["z"]
+    else:
+        base["z"] = 0
+
+    return base
+
+def toss_ev_pars(c):
+    alt_cosm = ci.default_cosmology()
+    alt_cosm["ombh2"] = c["ombh2"]
+    alt_cosm["omch2"] = c["omch2"]
+    alt_cosm["n_s"] = c["n_s"]
+    alt_cosm["A_s"] = c["A_s"]
+    alt_cosm["z"] = 0
+    alt_cosm = ci.specify_neutrino_mass(alt_cosm, c["omnuh2"], 1)
+    return alt_cosm
+
+def easy_comparisons_sigma12(lhs, priors, k_axis):
+    perc_errors = []
+    true = []
+    predictions = []
+
+    for i in range(len(lhs)):
+        print(i)
+        this_denormalized_row = ged.denormalize_row(lhs[i], priors)
+        this_cosmology = ged.build_cosmology(this_denormalized_row)
+        this_cosmodict = ci_to_cosmodict(this_cosmology)
+        this_brendac = ei.transcribe_cosmology(this_cosmodict)
+
+        try:
+            true.append(ci.evaluate_sigma12(this_cosmology))
+            predictions.append(ei.add_sigma12(this_brendac).pars['sigma12'])
+            perc_errors.append(utils.percent_error(true[i], predictions[i]))
+        except ValueError:
+            true.append(np.nan)
+            predictions.append(np.nan)
+            perc_errors.append(np.nan)
+
+    return perc_errors, true, predictions
 
 
 def easy_comparisons(lhs, true, priors, k_axis):
@@ -36,7 +75,8 @@ def easy_comparisons(lhs, true, priors, k_axis):
         this_cosmodict = ci_to_cosmodict(this_cosmology)
         
         try:
-            this_intrpr, this_unc_intrpr = ei.get_Pk_interpolator(this_cosmodict)
+            this_intrpr, this_unc_intrpr = \
+                ei.get_Pk_interpolator(this_cosmodict)
             this_prediction = this_intrpr(k_axis)
             predictions[i] = this_prediction
             errors[i] = this_prediction - true[i]
