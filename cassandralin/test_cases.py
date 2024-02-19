@@ -7,6 +7,8 @@ import numpy as np
 import camb
 import time
 
+import copy as cp
+
 def Aletheia_to_cosmodict(index):
     return ci_to_cosmodict(ci.cosm.iloc[index])
     
@@ -49,6 +51,17 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
         print(i)
         this_denormalized_row = ged.denormalize_row(lhs[i], priors)
         this_cosmology = ged.build_cosmology(this_denormalized_row)
+
+        # What happens if we override A_s?
+        #this_cosmology["A_s"] = ci.default_cosmology()["A_s"]
+        #this_cosmology['h'] = ci.default_cosmology()['h']
+        #this_cosmology['OmK'] = 0
+        #this_cosmology['w0'] = -1.
+        #this_cosmology['wa'] = 0.
+        #this_cosmology['z'] = 1.
+
+        #this_cosmology['omch2'] = ci.default_cosmology()['omch2']
+
         print(this_cosmology)
         cd = ci_to_cosmodict(this_cosmology)
         cd = ei.convert_fractional_densities(cd)
@@ -57,7 +70,8 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
         print(this_brendac.pars)
 
         try:
-            this_true = ci.evaluate_sigma12(this_cosmology, 
+            MEMNeC = ci.balance_neutrinos_with_CDM(this_cosmology, 0)
+            this_true = ci.evaluate_sigma12(MEMNeC, 
                     redshifts=[this_cosmology["z"]])[0]
             this_pred = ei.add_sigma12(this_brendac).pars['sigma12']
             this_percerr = utils.percent_error(this_true, this_pred)
