@@ -37,7 +37,7 @@ DEFAULT_COSMO_DICT = {
     'omega_b': 0.022445,
     'omega_cdm': 0.120567,
     'ns': 0.96,
-    'As': 2.127238e-9,
+    'As': 2.1272378801300004e-09,
     'omega_K': 0.,
     'omega_de': 0.305888,
     'omega_nu': 0.,
@@ -710,6 +710,37 @@ def emulate_sigma12(cosmology):
     return SIGMA12_TRAINER.p_emu.predict(input_normalized)[0][0]
 
 
+def get_MEMNeC(cosmology):
+    MEMNeC = cp.deepcopy(cosmology)
+    Mp = MEMNeC.pars
+    Mph2 = Mp["h"] ** 2
+    Mp["omega_cdm"] += cosmology.pars["omega_nu"]
+    Mp["omega_nu"] = 0
+    # Recalculate fractionals, which Brenda uses. The value of h did not change
+    Mp["Omega_cdm"] = Mp["omega_cdm"] / Mph2
+    # Strictly speaking, this line is not necessary for Brenda. But it keeps
+    # the logic straightforward...
+    Mp["Omega_nu"] = Mp["omega_nu"] / Mph2
+    
+    return MEMNeC
+    
+def get_sigma12_emu_cosmology(MEMNeC):
+    emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
+    ecp = emu_cosmology.pars
+    ech2 = ecp["h"] ** 2
+    
+    for key in ["omega_b", "omega_cdm", "ns", "omega_m"]:
+        ecp[key] = MEMNeC.pars[key]
+    # Recalculate fractionals, because h changed
+    ecp["Omega_b"] = ecp["omega_b"] / ech2
+    ecp["Omega_cdm"] = ecp["omega_cdm"] / ech2
+    ecp["Omega_m"] = ecp["omega_m"] / ech2
+    # Now we need to recalculate dark energy.
+    ecp["omega_de"] = ech2 - ecp["omega_m"] - ecp["omega_K"]
+    ecp["Omega_DE"] = ecp["omega_de"] / ech2
+    
+    return emu_cosmology
+
 def estimate_sigma12(cosmology):
     """
     Analytically solve for a sigma12 value based on the evolution and shape
@@ -738,33 +769,10 @@ def estimate_sigma12(cosmology):
     # the emulated cosmology: this is DEFAULT_BRENDA_COSMO, but with the three
     # shape parameters specified (ns makes no difference but we include it here
     # for completeness).
-    MEMNeC = cp.deepcopy(cosmology)
-    Mp = MEMNeC.pars
-    Mph2 = Mp["h"] ** 2
-    Mp["omega_cdm"] += cosmology.pars["omega_nu"]
-    Mp["omega_nu"] = 0
-    # Recalculate fractionals, which Brenda uses. The value of h did not change
-    Mp["Omega_cdm"] = Mp["omega_cdm"] / Mph2
-    # Strictly speaking, this line is not necessary for Brenda. But it keeps
-    # the logic straightforward...
-    Mp["Omega_nu"] = Mp["omega_nu"] / Mph2
+    MEMNeC = get_MEMNeC(cosmology)
+    emu_cosmology = get_sigma12_emu_cosmology(MEMNeC)
 
     print(MEMNeC.pars)
-
-    emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
-    ecp = emu_cosmology.pars
-    ech2 = ecp["h"] ** 2
-    
-    for key in ["omega_b", "omega_cdm", "ns", "omega_m"]:
-        ecp[key] = MEMNeC.pars[key]
-    # Recalculate fractionals, because h changed
-    ecp["Omega_b"] = ecp["omega_b"] / ech2
-    ecp["Omega_cdm"] = ecp["omega_cdm"] / ech2
-    ecp["Omega_m"] = ecp["omega_m"] / ech2
-    # Now we need to recalculate dark energy.
-    ecp["omega_de"] = ech2 - ecp["omega_m"] - ecp["omega_K"]
-    ecp["Omega_DE"] = ecp["omega_de"] / ech2
-        
     print(emu_cosmology.pars)
 
     old_sigma12 = emulate_sigma12(emu_cosmology)
