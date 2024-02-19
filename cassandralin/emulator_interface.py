@@ -739,22 +739,33 @@ def estimate_sigma12(cosmology):
     # shape parameters specified (ns makes no difference but we include it here
     # for completeness).
     MEMNeC = cp.deepcopy(cosmology)
-    MEMNeC.pars["omega_cdm"] += cosmology.pars["omega_nu"]
-    MEMNeC.pars["omega_nu"] = 0
+    Mp = MEMNeC.pars
+    Mph2 = Mp["h"] ** 2
+    Mp["omega_cdm"] += cosmology.pars["omega_nu"]
+    Mp["omega_nu"] = 0
     # Recalculate fractionals, which Brenda uses. The value of h did not change
-    MEMNeC.pars["Omega_cdm"] = MEMNeC.pars["omega_cdm"] / MEMNeC.pars["h"] ** 2
+    Mp["Omega_cdm"] = Mp["omega_cdm"] / Mph2
     # Strictly speaking, this line is not necessary for Brenda. But it keeps
     # the logic straightforward...
-    MEMNeC.pars["Omega_nu"] = MEMNeC.pars["omega_nu"] / MEMNeC.pars["h"] ** 2
+    Mp["Omega_nu"] = Mp["omega_nu"] / Mph2
+
+    print(MEMNeC.pars)
 
     emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
-    for key in ["omega_b", "omega_cdm", "ns"]:
-        emu_cosmology.pars[key] = MEMNeC.pars[key]
-    # Recalculate fractionals, which Brenda uses. The value of h did not change
-    emu_cosmology.pars["Omega_b"] = emu_cosmology.pars["omega_b"] / \
-        emu_cosmology.pars["h"] ** 2
-    emu_cosmology.pars["Omega_cdm"] = emu_cosmology.pars["omega_cdm"] / \
-        emu_cosmology.pars["h"] ** 2
+    ecp = emu_cosmology.pars
+    ech2 = ecp["h"] ** 2
+    
+    for key in ["omega_b", "omega_cdm", "ns", "omega_m"]:
+        ecp[key] = MEMNeC.pars[key]
+    # Recalculate fractionals, because h changed
+    ecp["Omega_b"] = ecp["omega_b"] / ech2
+    ecp["Omega_cdm"] = ecp["omega_cdm"] / ech2
+    ecp["Omega_m"] = ecp["omega_m"] / ech2
+    # Now we need to recalculate dark energy.
+    ecp["omega_de"] = ech2 - ecp["omega_m"] - ecp["omega_K"]
+    ecp["Omega_DE"] = ecp["omega_de"] / ech2
+        
+    print(emu_cosmology.pars)
 
     old_sigma12 = emulate_sigma12(emu_cosmology)
 
@@ -772,6 +783,10 @@ def estimate_sigma12(cosmology):
     # disappears because, in this case, transcribe_cosmology sets
     # cosmology["As"] = DEFAULT_COSMO_DICT["As"]
     As_ratio = MEMNeC.pars["As"] / emu_cosmology.pars["As"]
+
+    print(old_sigma12)
+    print(growth_ratio)
+    print(As_ratio)
 
     return old_sigma12 * growth_ratio * np.sqrt(As_ratio)
 
