@@ -25,7 +25,7 @@ SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v99.cle",
 # Massive-neutrino emu
 NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu4c_wiggler.cle", allow_pickle=True)
 # Zero-mass neutrino emu
-ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz2.cle", allow_pickle=True)
+ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz3c_wiggler.cle", allow_pickle=True)
 
 FRACTIONAL_KEYS = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K",
                    "Omega_nu"]
@@ -654,7 +654,7 @@ def add_sigma12(cosmology):
     new_cosmology = cp.deepcopy(cosmology)
 
     new_cosmology.pars["sigma12"] = estimate_sigma12(new_cosmology)
-
+    
     if not within_prior(new_cosmology.pars, "sigma12", 3):
         raise ValueError("The given evolution parameters are invalid " +
                          "because they result in a sigma12 value outside " +
@@ -772,9 +772,6 @@ def estimate_sigma12(cosmology):
     MEMNeC = get_MEMNeC(cosmology)
     emu_cosmology = get_sigma12_emu_cosmology(MEMNeC)
 
-    print(MEMNeC.pars)
-    print(emu_cosmology.pars)
-
     old_sigma12 = emulate_sigma12(emu_cosmology)
 
     new_a = 1.0 / (1.0 + MEMNeC.pars["z"])
@@ -791,10 +788,6 @@ def estimate_sigma12(cosmology):
     # disappears because, in this case, transcribe_cosmology sets
     # cosmology["As"] = DEFAULT_COSMO_DICT["As"]
     As_ratio = MEMNeC.pars["As"] / emu_cosmology.pars["As"]
-
-    print(old_sigma12)
-    print(growth_ratio)
-    print(As_ratio)
 
     return old_sigma12 * growth_ratio * np.sqrt(As_ratio)
 

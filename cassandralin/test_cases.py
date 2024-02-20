@@ -2,7 +2,7 @@ from cassL import camb_interface as ci
 from cassL import generate_emu_data as ged
 from cassL import utils
 
-import emulator_interface as ei
+from cassandralin import emulator_interface as ei
 import numpy as np
 import camb
 import time
@@ -13,7 +13,7 @@ def Aletheia_to_cosmodict(index):
     return ci_to_cosmodict(ci.cosm.iloc[index])
     
 
-def ci_to_cosmodict(c):
+def ci_to_cosmodict_bare(c):
     base = {
         "omega_b": c["ombh2"],
         "omega_cdm": c["omch2"],
@@ -29,8 +29,14 @@ def ci_to_cosmodict(c):
         base["z"] = c["z"]
     else:
         base["z"] = 0
-
+        
     return base
+
+def ci_to_cosmodict(c):
+    cd = ci_to_cosmodict_bare(c)
+    cd = ei.convert_fractional_densities(base)
+    return ei.fill_in_defaults(cd)
+
 
 def toss_ev_pars(c):
     alt_cosm = ci.default_cosmology()
@@ -41,16 +47,31 @@ def toss_ev_pars(c):
     alt_cosm["z"] = 0
     alt_cosm = ci.specify_neutrino_mass(alt_cosm, c["omnuh2"], 1)
     return alt_cosm
+    
+    
+def to_emu_cosmology(c):
+    ec = ci.default_cosmology()
+    ec['ombh2'] = c['ombh2']
+    ec['omch2'] = c['omch2']
+    ec['n_s'] = c['n_s']
+    return ec
+    
+
+def fetch_cosmology(row, priors):
+    denormd = ged.denormalize_row(row, priors)
+    return ged.build_cosmology(denormd)
+
 
 def easy_comparisons_sigma12(lhs, priors, k_axis):
     perc_errors = []
     true = []
     predictions = []
+    brendas = []
+    qis = []
 
     for i in range(len(lhs)):
         print(i)
-        this_denormalized_row = ged.denormalize_row(lhs[i], priors)
-        this_cosmology = ged.build_cosmology(this_denormalized_row)
+        this_cosmology = fetch_cosmology(lhs[i], priors)
 
         # What happens if we override A_s?
         #this_cosmology["A_s"] = ci.default_cosmology()["A_s"]
@@ -61,13 +82,14 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
         #this_cosmology['z'] = 1.
 
         #this_cosmology['omch2'] = ci.default_cosmology()['omch2']
-
-        print(this_cosmology)
-        cd = ci_to_cosmodict(this_cosmology)
-        cd = ei.convert_fractional_densities(cd)
-        cd = ei.fill_in_defaults(cd)
-        this_brendac = ei.transcribe_cosmology(cd)
-        print(this_brendac.pars)
+        #this_cosmology = to_emu_cosmology(this_cosmology)
+        #this_cosmology['z'] = 1
+        this_brendac = ci_to_brenda_cosmology(this_cosmology)
+        #print(this_cosmology)
+        #print(this_brendac.pars)
+        
+        brendas.append(this_brendac)
+        qis.append(this_cosmology)
 
         try:
             MEMNeC = ci.balance_neutrinos_with_CDM(this_cosmology, 0)
@@ -84,7 +106,7 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
             predictions.append(np.nan)
             perc_errors.append(np.nan)
 
-    return perc_errors, true, predictions
+    return perc_errors, true, predictions, brendas, qis
 
 
 def easy_comparisons(lhs, true, priors, k_axis):
