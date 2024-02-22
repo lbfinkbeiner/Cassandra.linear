@@ -724,7 +724,31 @@ def get_MEMNeC(cosmology):
     
     return MEMNeC
     
+    
 def get_sigma12_emu_cosmology(MEMNeC):
+    """
+    Return a copy of MEMNeC where As, z, and all evolution parameters are set
+    to default values. This is useful for obtaining emulator predictions, since
+    the emulator training data vary only in omega_b, omega_cdm, and ns; all
+    other parameters were assigned default values.
+    
+    This function is not merely a section of the emulate_sigma12 function and
+    in fact is not called at all by emulate_sigma12. It is desirable to keep
+    the definition of this cosmology separate from the emulation code
+    because we need to keep using this cosmology in order to
+    calculate the LGF's needed for analytical scaling of the emulator output
+    (see the fn estimate_sigma12).
+    
+    :param MEMNeC: A Brenda Cosmology object without any physical density in
+        massive neutrinos. It is not recommended to manually create this
+        object, but to start with a cosmology dictionary (of the format used by
+        DEFAULT_COSMO_DICT), run it through the conversion functions
+        (convert_fractional_densities, fill_in_defaults, and
+        transcribe_cosmology), and finally transform it with get_MEMNeC.
+    :type MEMNeC: instance of the Cosmology class from Brenda.
+    :return: The sigma12-emulator counterpart to @MEMNeC.
+    :rtype: instance of the Cosmology class from Brenda.
+    """
     emu_cosmology = cp.deepcopy(DEFAULT_BRENDA_COSMO)
     ecp = emu_cosmology.pars
     ech2 = ecp["h"] ** 2
@@ -740,6 +764,7 @@ def get_sigma12_emu_cosmology(MEMNeC):
     ecp["Omega_DE"] = ecp["omega_de"] / ech2
     
     return emu_cosmology
+
 
 def estimate_sigma12(cosmology):
     """
