@@ -32,9 +32,10 @@ def ci_to_cosmodict_bare(c):
         
     return base
 
+
 def ci_to_cosmodict(c):
     cd = ci_to_cosmodict_bare(c)
-    cd = ei.convert_fractional_densities(base)
+    cd = ei.convert_fractional_densities(cd)
     return ei.fill_in_defaults(cd)
 
 

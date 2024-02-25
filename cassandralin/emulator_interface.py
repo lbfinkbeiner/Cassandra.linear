@@ -622,14 +622,20 @@ def cosmology_to_Pk(cosmo_dict):
 
     emu_vector = cosmology_to_emu_vec(cosmology)
 
+    P = None
+    unc = None
+
     # Again, we have to de-nest
     if len(emu_vector) == 6:  # massive neutrinos
-        return NU_TRAINER.p_emu.predict(emu_vector)[0], \
-            NU_TRAINER.delta_emu.predict(emu_vector)[0]
+        P = NU_TRAINER.p_emu.predict(emu_vector)[0]
+        unc = NU_TRAINER.delta_emu.predict(emu_vector)[0]
+        
     elif len(emu_vector) == 4:  # massless neutrinos
-        return ZM_TRAINER.p_emu.predict(emu_vector)[0], \
-            ZM_TRAINER.delta_emu.predict(emu_vector)[0]
+        P = ZM_TRAINER.p_emu.predict(emu_vector)[0]
+        unc = ZM_TRAINER.delta_emu.predict(emu_vector)[0]
 
+    P_corrected = P * curvature_correction(cosmology)
+    return P_corrected, unc
 
 def add_sigma12(cosmology):
     """
@@ -857,6 +863,23 @@ def cosmology_to_emu_vec(cosmology):
         full_vector = np.append(base, extension)
         return NU_TRAINER.p_emu.convert_to_normalized_params(full_vector)
 
+
+def curvature_correction(cosmology):
+    """
+    cosmology: a fully scrubbed Brenda cosmology
+    """
+    OmK = cosmology.pars['Omega_K']
+    if OmK == 0:
+        return np.ones(K_AXIS)
+    
+    c = 299792.458 # km / s
+    H_0 = cosmology.pars['h'] * 100
+    
+    inv_curv_area = - OmK * H_0 ** 2 / c ** 2
+    curved_sq_scales = K_AXIS ** 2 -  inv_curv_area 
+    
+    return (curved_sq_scales - 4 * inv_curv_area) ** 2 / \
+        (curved_sq_scales - inv_curv_area) / K_AXIS ** 2
 
 # The only two functions the user should ever care about:
 # That means we can talk about these in the paper...
