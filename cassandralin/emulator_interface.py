@@ -870,13 +870,13 @@ def curvature_correction(cosmology):
     """
     OmK = cosmology.pars['Omega_K']
     if OmK == 0:
-        return np.ones(K_AXIS)
+        return np.ones(len(K_AXIS))
     
     c = 299792.458 # km / s
     H_0 = cosmology.pars['h'] * 100
     
     inv_curv_area = - OmK * H_0 ** 2 / c ** 2
-    curved_sq_scales = K_AXIS ** 2 -  inv_curv_area 
+    curved_sq_scales = K_AXIS ** 2 - inv_curv_area 
     
     return (curved_sq_scales - 4 * inv_curv_area) ** 2 / \
         (curved_sq_scales - inv_curv_area) / K_AXIS ** 2
