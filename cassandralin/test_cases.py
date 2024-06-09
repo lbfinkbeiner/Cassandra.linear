@@ -13,6 +13,7 @@ def Aletheia_to_cosmodict(index):
     return ci_to_cosmodict(ci.cosm.iloc[index])
     
 
+
 def ci_to_cosmodict_bare(c):
     base = {
         "omega_b": c["ombh2"],
@@ -58,12 +59,15 @@ def to_emu_cosmology(c):
     return ec
     
 
-def fetch_cosmology(row, priors):
-    denormd = ged.denormalize_row(row, priors)
-    return ged.build_cosmology(denormd)
+def fetch_cosmology(row, priors, mapping):
+    denormd = ged.denormalize_row(row, priors, mapping)
+    return ged.build_cosmology(denormd, mapping)
 
+def ci_to_brenda_cosmology(ci_cosm):
+    cd = ci_to_cosmodict(ci_cosm)
+    return ei.transcribe_cosmology(cd)
 
-def easy_comparisons_sigma12(lhs, priors, k_axis):
+def easy_comparisons_sigma12(lhs, priors, k_axis, mapping):
     perc_errors = []
     true = []
     predictions = []
@@ -72,7 +76,7 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
 
     for i in range(len(lhs)):
         print(i)
-        this_cosmology = fetch_cosmology(lhs[i], priors)
+        this_cosmology = fetch_cosmology(lhs[i], priors, mapping)
 
         # What happens if we override A_s?
         #this_cosmology["A_s"] = ci.default_cosmology()["A_s"]
@@ -94,7 +98,7 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
 
         try:
             MEMNeC = ci.balance_neutrinos_with_CDM(this_cosmology, 0)
-            this_true = ci.evaluate_sigma12(MEMNeC, 
+            this_true = ci.evaluate_sigmaR(MEMNeC, 12, 
                     redshifts=[this_cosmology["z"]])[0]
             this_pred = ei.add_sigma12(this_brendac).pars['sigma12']
             this_percerr = utils.percent_error(this_true, this_pred)
