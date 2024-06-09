@@ -25,7 +25,9 @@ SIGMA12_TRAINER = np.load(DATA_PREFIX + "emus/sigma12_v99.cle",
 # Massive-neutrino emu
 NU_TRAINER = np.load(DATA_PREFIX + "emus/Hnu4c_wiggler.cle", allow_pickle=True)
 # Zero-mass neutrino emu
-ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz3c_wiggler.cle", allow_pickle=True)
+# This should be upgraded to a newer version via regeneration...
+# evidently we had created a Hz3c_wiggler before retiring.
+ZM_TRAINER = np.load(DATA_PREFIX + "emus/Hz2.cle", allow_pickle=True)
 
 FRACTIONAL_KEYS = ["Omega_b", "Omega_cdm", "Omega_DE", "Omega_K",
                    "Omega_nu"]
@@ -183,7 +185,7 @@ EV_PAR_KEYS = ["omega_K", "Omega_K", "omega_de", "Omega_DE", "w", "w0",
                "wa", "h", "H0"]
 
 
-def prior_file_to_array(prior_name="COMET"):
+def prior_file_to_array(prior_name="COMET_PLUS_FP"):
     """
     Read a prior file into a NumPy array.
 
@@ -197,7 +199,7 @@ def prior_file_to_array(prior_name="COMET"):
     reason to call this function outside of its automatic invocation.
 
     :param prior_name: The name of the prior file to be read, i.e. the file
-        handle minus the file extension, defaults to "COMET".
+        handle minus the file extension, defaults to "COMET_PLUS_FP".
     :type prior_name: str, optional
     :return: Priors associated with the given @prior_name. The first index
         determines the cosmological parameter and the second index is either 0
@@ -225,8 +227,8 @@ def prior_file_to_array(prior_name="COMET"):
     return param_ranges
 
 
-PRIORS_NU = prior_file_to_array("COMET_PLUS")
-PRIORS_NONU = prior_file_to_array("MASSLESS")
+PRIORS_NU = prior_file_to_array("COMET_PLUS_FP")
+PRIORS_NONU = prior_file_to_array("MASSLESS_FP")
 
 def get_priors(cosmo_dict):
     if neutrinos_massive(cosmo_dict):

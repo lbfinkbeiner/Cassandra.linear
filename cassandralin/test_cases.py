@@ -110,15 +110,15 @@ def easy_comparisons_sigma12(lhs, priors, k_axis):
     return perc_errors, true, predictions, brendas, qis
 
 
-def easy_comparisons(lhs, true, priors, k_axis):
+def easy_comparisons(lhs, true, priors, k_axis, mapping):
     errors = np.empty(true.shape)
     predictions = np.empty(true.shape)
 
     for i in range(len(true)):
         print(i)
-        this_denormalized_row = ged.denormalize_row(lhs[i], priors)
-        this_cosmology = ged.build_cosmology(this_denormalized_row)
-        this_cosmodict = ci_to_cosmodict(this_cosmology)
+        this_denormalized_row = ged.denormalize_row(lhs[i], priors, mapping)
+        this_cosmology = ged.build_cosmology(this_denormalized_row, mapping)
+        this_cosmodict = ci_to_cosmodict_bare(this_cosmology)
         
         try:
             this_intrpr, this_unc_intrpr = \
