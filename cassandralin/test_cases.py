@@ -7,11 +7,14 @@ import numpy as np
 import camb
 import time
 
+import warnings
+
 import copy as cp
 
 def Aletheia_to_cosmodict(index):
-    return ci_to_cosmodict(ci.cosm.iloc[index])
-    
+    base = ci.cosm.iloc[index]
+    neutrinos_set = ci.balance_neutrinos_with_CDM(base, 0)
+    return ci_to_cosmodict_bare(neutrinos_set)
 
 
 def ci_to_cosmodict_bare(c):
@@ -35,6 +38,8 @@ def ci_to_cosmodict_bare(c):
 
 
 def ci_to_cosmodict(c):
+    warnings.warn("You probably don't want to use ci_to_cosmodict,"
+        "but rather ci_to_cosmodict_bare. Otherwise, ei will complain.")
     cd = ci_to_cosmodict_bare(c)
     cd = ei.convert_fractional_densities(cd)
     return ei.fill_in_defaults(cd)
